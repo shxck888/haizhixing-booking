@@ -22,10 +22,10 @@
         .card {
             background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(12px);
-            border-radius: 1.75rem;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 450px;
+            max-width: 480px; 
             padding: 2.25rem 1.75rem;
         }
 
@@ -36,43 +36,63 @@
 
         .input-group label {
             display: block;
-            font-weight: 600;
-            color: #334155;
+            font-weight: 700;
+            color: #1e293b;
             margin-bottom: 0.6rem;
-            font-size: 1rem;
-            text-align: center; /* 標題置中 */
+            font-size: 1.15rem;
+            text-align: center;
         }
 
-        /* 修正：將所有輸入框文字設定為置中 */
+        /* 統一所有輸入框的尺寸與高度 */
         input, select, textarea {
             width: 100%;
-            padding: 1rem;
-            text-align: center; /* 輸入文字置中 */
-            text-align-last: center; /* 針對 select 選項置中 */
-            border: 1px solid #e2e8f0;
+            height: 3.8rem; /* 統一固定高度 */
+            padding: 0 1.1rem; /* 左右內距 */
+            text-align: center;
+            text-align-last: center;
+            border: 1.5px solid #e2e8f0; 
             border-radius: 1.25rem;
             background-color: #f8fafc;
             transition: all 0.25s ease;
             outline: none;
-            font-size: 1rem;
-            color: #1e293b;
+            font-size: 1.2rem; 
+            color: #0f172a;
             appearance: none;
             box-sizing: border-box;
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* 確保 placeholder 提示文字也置中 */
+        /* 針對多行文字框調整，使其可容納多行但維持風格統一 */
+        textarea {
+            height: auto;
+            min-height: 4.5rem;
+            padding: 1rem 1.1rem;
+            line-height: 1.5;
+        }
+
+        /* 針對日期輸入框在不同瀏覽器的顯示修正 */
+        input[type="date"] {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         ::placeholder {
             color: #94a3b8;
             opacity: 1;
             text-align: center;
+            font-size: 1.05rem;
         }
 
-        /* 針對 select 的特殊處理，確保在移動端也能置中 */
+        /* 調整 select 箭頭位置 */
         select {
-            padding-left: 1rem;
-            padding-right: 1rem;
-            background-position: right 1rem center;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1.1rem center;
+            background-size: 1.2rem;
+            padding-right: 2.5rem;
         }
 
         input:focus, select:focus, textarea:focus {
@@ -85,13 +105,13 @@
             background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
             color: white;
             font-weight: 700;
-            padding: 1.1rem;
+            padding: 1.15rem;
             border-radius: 1.25rem;
             width: 100%;
             transition: all 0.3s ease;
             box-shadow: 0 8px 20px rgba(2, 132, 199, 0.25);
-            font-size: 1.1rem;
-            margin-top: 1rem;
+            font-size: 1.25rem;
+            margin-top: 1.25rem;
         }
 
         .btn-submit:active {
@@ -111,7 +131,17 @@
             z-index: 50;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 2rem;
+            padding: 2.25rem;
+            max-width: 85%;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
     </style>
 </head>
@@ -121,11 +151,10 @@
     <div class="card">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-extrabold text-sky-900 tracking-tight">海之星 🌟</h2>
-            <p class="text-slate-500 font-medium mt-2">線上訂位預約系統</p>
+            <p class="text-slate-500 font-bold mt-2 text-base">線上訂位預約系統</p>
         </div>
 
         <div class="form-content">
-            <!-- 所有欄位現在都是獨立一列 -->
             <div class="input-group">
                 <label for="name">訂位姓名</label>
                 <input type="text" id="name" placeholder="請輸入姓名">
@@ -171,7 +200,7 @@
 
             <div class="input-group">
                 <label for="note">備註事項 (選填)</label>
-                <textarea id="note" rows="2" placeholder="如有特殊需求於此註明"></textarea>
+                <textarea id="note" rows="2" placeholder="如有特殊需求於此註明，例如：餐點鹹淡、慶生等"></textarea>
             </div>
 
             <button onclick="submitForm()" class="btn-submit">確認並送出訂位</button>
@@ -179,19 +208,25 @@
     </div>
 
     <div id="custom-modal">
-        <div class="bg-white rounded-3xl p-8 max-w-xs w-full mx-4 shadow-2xl text-center">
+        <div class="modal-content">
             <div class="text-sky-500 mb-4 text-5xl">✅</div>
             <h3 class="text-2xl font-bold text-slate-800 mb-2">預約成功</h3>
-            <p class="text-slate-500 mb-8 leading-relaxed">感謝您的預約，訂位資訊已成功傳送。</p>
-            <button onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full shadow-lg hover:bg-slate-800 transition-colors">好的</button>
+            <p class="text-slate-500 mb-6 text-base leading-relaxed">感謝您的預約，<br>訂位資訊已成功傳送。</p>
+            <button onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full text-lg shadow-lg hover:bg-slate-800">好的</button>
         </div>
     </div>
 
     <script>
         window.onload = function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('date').setAttribute('min', today);
-            document.getElementById('date').value = today;
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            
+            const dateInput = document.getElementById('date');
+            dateInput.setAttribute('min', today);
+            dateInput.value = today;
 
             const timeSelect = document.getElementById('time');
             for (let hour = 11; hour <= 19; hour++) {
@@ -227,10 +262,10 @@
             }
 
             let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
-            const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・類型：${typeDisplay}\n・備註：${note}`;
+            const message = `🌟 海之星訂位確認 🌟\n\n👤 姓名：${name}\n📞 電話：${phone}\n📅 日期：${date}\n🕒 時間：${time}\n👥 人數：${people} 人\n🍽️ 類型：${typeDisplay}\n📝 備註：${note}`;
 
             try {
-                await liff.init({ liffId: "2009349137-moYNjcVA" });
+                await liff.init({ liffId: "你的LIFFID" });
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
