@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海之星餐廳 - 線上訂位</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-radius: 1.75rem;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 450px;
+            padding: 2.25rem 1.75rem;
+        }
+
+        .input-group {
+            width: 100%;
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.6rem;
+            font-size: 1rem;
+            text-align: center; /* 標題置中 */
+        }
+
+        /* 修正：將所有輸入框文字設定為置中 */
+        input, select, textarea {
+            width: 100%;
+            padding: 1rem;
+            text-align: center; /* 輸入文字置中 */
+            text-align-last: center; /* 針對 select 選項置中 */
+            border: 1px solid #e2e8f0;
+            border-radius: 1.25rem;
+            background-color: #f8fafc;
+            transition: all 0.25s ease;
+            outline: none;
+            font-size: 1rem;
+            color: #1e293b;
+            appearance: none;
+            box-sizing: border-box;
+            display: block;
+        }
+
+        /* 確保 placeholder 提示文字也置中 */
+        ::placeholder {
+            color: #94a3b8;
+            opacity: 1;
+            text-align: center;
+        }
+
+        /* 針對 select 的特殊處理，確保在移動端也能置中 */
+        select {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            background-position: right 1rem center;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+            background-color: #fff;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            font-weight: 700;
+            padding: 1.1rem;
+            border-radius: 1.25rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(2, 132, 199, 0.25);
+            font-size: 1.1rem;
+            margin-top: 1rem;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.97);
+            filter: brightness(0.95);
+        }
+
+        .hidden-group {
+            display: none;
+        }
+
+        #custom-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-extrabold text-sky-900 tracking-tight">海之星 🌟</h2>
+            <p class="text-slate-500 font-medium mt-2">線上訂位預約系統</p>
+        </div>
+
+        <div class="form-content">
+            <!-- 所有欄位現在都是獨立一列 -->
+            <div class="input-group">
+                <label for="name">訂位姓名</label>
+                <input type="text" id="name" placeholder="請輸入姓名">
+            </div>
+
+            <div class="input-group">
+                <label for="phone">聯絡電話</label>
+                <input type="tel" id="phone" inputmode="numeric" pattern="[0-9]*" placeholder="請輸入電話號碼">
+            </div>
+
+            <div class="input-group">
+                <label for="date">預約日期</label>
+                <input type="date" id="date">
+            </div>
+
+            <div class="input-group">
+                <label for="time">預約時段</label>
+                <select id="time"></select>
+            </div>
+
+            <div class="input-group">
+                <label for="people">訂位人數</label>
+                <input type="number" id="people" inputmode="numeric" min="1" placeholder="請輸入用餐人數">
+            </div>
+
+            <div class="input-group">
+                <label for="type">用餐類型</label>
+                <select id="type" onchange="toggleTableValue()">
+                    <option value="單點熱炒">單點熱炒</option>
+                    <option value="桌菜">桌菜</option>
+                </select>
+            </div>
+
+            <div id="tableValueGroup" class="input-group hidden-group">
+                <label for="tableValue">桌菜價位</label>
+                <select id="tableValue">
+                    <option value="6000">6000</option>
+                    <option value="8000">8000</option>
+                    <option value="10000">10000</option>
+                    <option value="特訂">特訂</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="note">備註事項 (選填)</label>
+                <textarea id="note" rows="2" placeholder="如有特殊需求於此註明"></textarea>
+            </div>
+
+            <button onclick="submitForm()" class="btn-submit">確認並送出訂位</button>
+        </div>
+    </div>
+
+    <div id="custom-modal">
+        <div class="bg-white rounded-3xl p-8 max-w-xs w-full mx-4 shadow-2xl text-center">
+            <div class="text-sky-500 mb-4 text-5xl">✅</div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">預約成功</h3>
+            <p class="text-slate-500 mb-8 leading-relaxed">感謝您的預約，訂位資訊已成功傳送。</p>
+            <button onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full shadow-lg hover:bg-slate-800 transition-colors">好的</button>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').setAttribute('min', today);
+            document.getElementById('date').value = today;
+
+            const timeSelect = document.getElementById('time');
+            for (let hour = 11; hour <= 19; hour++) {
+                let hStr = (hour < 10 ? "0" + hour : hour);
+                let t1 = hStr + ":00";
+                timeSelect.add(new Option(t1, t1));
+                if (hour < 19) {
+                    let t2 = hStr + ":30";
+                    timeSelect.add(new Option(t2, t2));
+                }
+            }
+        };
+
+        function toggleTableValue() {
+            const type = document.getElementById("type").value;
+            const tableGroup = document.getElementById("tableValueGroup");
+            tableGroup.style.display = (type === "桌菜") ? "block" : "none";
+        }
+
+        async function submitForm() {
+            const name = document.getElementById("name").value.trim();
+            const phone = document.getElementById("phone").value.trim();
+            const date = document.getElementById("date").value;
+            const time = document.getElementById("time").value;
+            const people = document.getElementById("people").value.trim();
+            const type = document.getElementById("type").value;
+            const tableValue = document.getElementById("tableValue").value;
+            const note = document.getElementById("note").value.trim() || "無";
+
+            if (!name || !phone || !date || !people) {
+                showToast("請完整填寫資訊");
+                return;
+            }
+
+            let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
+            const message = `🌟 海之星訂位確認 🌟\n\n👤 姓名：${name}\n📞 電話：${phone}\n📅 日期：${date}\n🕒 時間：${time}\n👥 人數：${people} 人\n🍽️ 類型：${typeDisplay}\n📝 備註：${note}`;
+
+            try {
+                await liff.init({ liffId: "你的LIFFID" });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+                await liff.sendMessages([{ type: "text", text: message }]);
+                document.getElementById('custom-modal').style.display = 'flex';
+            } catch (err) {
+                console.error('LIFF Error:', err);
+                showToast("傳送失敗，請在 LINE 內開啟");
+            }
+        }
+
+        function showToast(msg) {
+            const btn = document.querySelector('.btn-submit');
+            const originalText = btn.innerText;
+            btn.innerText = msg;
+            btn.style.background = "#ef4444"; 
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = "";
+            }, 2000);
+        }
+
+        function closeLiff() {
+            liff.closeWindow();
+        }
+    </script>
+
+</body>
+</html>
