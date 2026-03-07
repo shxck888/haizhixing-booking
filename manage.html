@@ -149,7 +149,7 @@
             document.getElementById('loading-screen').style.display = 'flex';
             try {
                 // 使用 JSONP 或確保 GAS 有正確回傳 JSON
-                const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}`);
+                const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}&t=${Date.now()}`)
                 if (!response.ok) throw new Error('網路回應不正確');
                 
                 const result = await response.json();
