@@ -107,7 +107,7 @@
     </div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxZPuR1WJpHs1oJGs-ua8pfl1W_gJ18w_fpLxToJ2zQ6Ud63yIp0hx-WaA9D81qjAHY/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxM9CySruG7KyeyYFXdbDSnpCXWcGTsy7G7mLfxC1fNqxWQC5LXF6QvhyN24fLifA/exec";
         const LIFF_ID = "2009349137-5SWKczS7"; 
         let currentUserId = "";
 
@@ -182,7 +182,7 @@
                     </div>
 
                     ${isClosed ? `
-                        <div class="text-center py-2 text-slate-400 italic">此訂單已取消</div>
+                        <div class="text-center py-2 text-slate-400 italic">- 此訂位已取消 -</div>
                     ` : `
                         <div class="flex gap-3">
                             <button onclick="handleEditNote('${order.id}', '${order.note}')" class="btn-action btn-edit">修改備註</button>
