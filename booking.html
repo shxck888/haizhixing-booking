@@ -271,17 +271,17 @@
                 return;
             }
 
-            // 整理資料（此處不生成 ID，交給 GAS 處理）
+            // 整理資料傳送給 GAS
             const data = {
-                name,
-                phone,
-                date,
-                time,
-                people,
-                tables,
-                type,
-                tableValue: (type === "桌菜") ? tableValue : "N/A",
-                note
+                name: name,
+                phone: phone,
+                date: date,
+                time: time,
+                people: people,
+                tables: tables,
+                type: type,
+                tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
+                note: note
             };
 
             const btn = document.querySelector('.btn-submit');
@@ -292,8 +292,6 @@
                 // 1. 傳送到 Google Script 
                 const gasUrl = "https://script.google.com/macros/s/AKfycbyIATu1SoD36Nvg38W1cYIYNBaeJUuUjageAXTRYJFGlKaNdhqXbPlFCMJVKxrLArPs/exec"; 
                 
-                // 改用 POST 並接收回傳值 (注意：GAS 在 no-cors 模式下無法讀取回傳值，
-                // 但為了確保自動流水號，我們讓 GAS 自己計算並寫入即可。)
                 await fetch(gasUrl, {
                     method: "POST",
                     mode: "no-cors",
@@ -313,8 +311,6 @@
                 let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
                 let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
                 
-                // LINE 訊息通知中，因為前端抓不到 GAS 生成的正確 ID，建議用「訂位姓名+電話末四碼」作為臨時識別，
-                // 或者直接省略編號。若一定要編號，GAS 需要處理 Webhook 或 API。
                 const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
 
                 await liff.sendMessages([{ type: "text", text: message }]);
