@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海之星餐廳 - 訂位管理</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%);
+            min-height: 100vh;
+            padding: 1.25rem;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .order-card {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        /* 狀態顏色定義 */
+        .status-待確認 { background: #fef3c7; color: #92400e; }
+        .status-已確認 { background: #dcfce7; color: #166534; }
+        .status-需改時間 { background: #ffedd5; color: #9a3412; }
+        .status-已取消 { background: #fee2e2; color: #991b1b; }
+        .status-已拒絕 { background: #f1f5f9; color: #475569; }
+        .status-已完成 { background: #e0f2fe; color: #0369a1; }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            color: #475569;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-edit { background: #f1f5f9; color: #475569; }
+        .btn-cancel { background: #fff1f2; color: #e11d48; }
+        .btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0ea5e9;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p class="mt-4 text-slate-500 font-bold">正在讀取您的訂位...</p>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h2 class="text-2xl font-extrabold text-sky-900 tracking-tight">我的訂位管理</h2>
+            <p class="text-slate-500 font-bold text-sm mt-1">海之星餐廳專屬查詢</p>
+        </div>
+
+        <div id="order-list"></div>
+
+        <div id="no-data" class="hidden text-center py-12">
+            <div class="text-6xl mb-4">🍽️</div>
+            <p class="text-slate-500 font-bold text-lg">目前尚無訂位紀錄</p>
+            <p class="text-slate-400 text-sm mt-2">快去預訂美味的餐點吧！</p>
+        </div>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbyIATu1SoD36Nvg38W1cYIYNBaeJUuUjageAXTRYJFGlKaNdhqXbPlFCMJVKxrLArPs/exec";
+        const LIFF_ID = "2009349137-moYNjcVA";
+        let currentUserId = "";
+
+        async function init() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+                const profile = await liff.getProfile();
+                currentUserId = profile.userId;
+                fetchOrders();
+            } catch (err) {
+                console.error("LIFF Init Error", err);
+            }
+        }
+
+        async function fetchOrders() {
+            document.getElementById('loading-screen').style.display = 'flex';
+            try {
+                const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}`);
+                const result = await response.json();
+
+                document.getElementById('loading-screen').style.display = 'none';
+
+                if (result.status === 'success' && result.data.length > 0) {
+                    renderOrders(result.data);
+                    document.getElementById('no-data').classList.add('hidden');
+                } else {
+                    document.getElementById('order-list').innerHTML = '';
+                    document.getElementById('no-data').classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error("Fetch Error", err);
+                document.getElementById('loading-screen').style.display = 'none';
+            }
+        }
+
+        function renderOrders(orders) {
+            const listDiv = document.getElementById('order-list');
+            listDiv.innerHTML = '';
+
+            orders.forEach(order => {
+                const card = document.createElement('div');
+                card.className = 'order-card';
+                
+                // 判斷是否可以操作 (已取消、已拒絕、已完成 不可再操作)
+                const isFinalState = ['已取消', '已拒絕', '已完成'].includes(order.status);
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 block mb-1">訂單編號</span>
+                            <span class="text-lg font-black text-slate-800">${order.id}</span>
+                        </div>
+                        <span class="status-badge status-${order.status}">${order.status}</span>
+                    </div>
+                    
+                    <div class="space-y-2 mb-6 text-sm">
+                        <div class="info-row">
+                            <span class="info-label">日期時段</span>
+                            <span class="font-bold text-slate-700">${order.date} ${order.time}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">人數/桌數</span>
+                            <span class="font-bold text-slate-700">${order.people}人 (${order.tables})</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">用餐類型</span>
+                            <span class="font-bold text-slate-700">${order.type} ${order.tableValue !== '單點熱炒' ? '/ '+order.tableValue : ''}</span>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100">
+                            <span class="info-label text-xs">備註說明</span>
+                            <p class="text-slate-600 mt-1">${order.note || '無'}</p>
+                        </div>
+                    </div>
+
+                    ${!isFinalState ? `
+                    <div class="flex gap-3">
+                        <button onclick="handleEdit('${order.id}', '${order.note}')" class="btn-action btn-edit">修改備註</button>
+                        <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel">取消訂位</button>
+                    </div>
+                    ` : `
+                    <p class="text-center text-xs text-slate-400 font-medium italic">此訂單已結案，無法修改</p>
+                    `}
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
+        async function handleEdit(orderId, oldNote) {
+            const newNote = prompt("請輸入新的備註內容：", oldNote);
+            if (newNote !== null && newNote !== oldNote) {
+                await updateOrder({ action: 'updateNote', orderId: orderId, note: newNote });
+            }
+        }
+
+        async function handleCancel(orderId) {
+            if (confirm("確定要取消這筆訂位嗎？")) {
+                await updateOrder({ action: 'cancelOrder', orderId: orderId });
+            }
+        }
+
+        async function updateOrder(payload) {
+            document.getElementById('loading-screen').style.display = 'flex';
+            try {
+                await fetch(GAS_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                // 因為 no-cors 無法直接看 JSON，延遲一下直接重新整理
+                setTimeout(fetchOrders, 1000);
+            } catch (err) {
+                alert("操作失敗，請稍後再試");
+                fetchOrders();
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
