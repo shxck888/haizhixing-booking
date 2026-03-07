@@ -19,7 +19,7 @@
 
         .container { max-width: 520px; margin: 0 auto; }
         
-        /* 訂位卡片 */
+        /* 訂位卡片樣式 */
         .order-card { 
             background: rgba(255, 255, 255, 0.96); 
             backdrop-filter: blur(12px); 
@@ -30,7 +30,6 @@
             border: 1px solid rgba(255, 255, 255, 0.3); 
         }
 
-        /* 調大文字大小 */
         .info-row { display: flex; align-items: center; margin-bottom: 0.6rem; font-size: 1.1rem; white-space: nowrap; }
         .info-label { width: 100px; flex-shrink: 0; color: #64748b; font-weight: 500; }
         .info-value { color: #1e293b; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
@@ -41,13 +40,12 @@
         .status-已確認 { background: #dcfce7; color: #166534; }
         .status-已取消 { background: #fee2e2; color: #991b1b; }
 
-        /* 按鈕調大 */
-        .btn-action { flex: 1; padding: 0.85rem; border-radius: 0.75rem; font-weight: 700; font-size: 1rem; text-align: center; transition: 0.2s; }
-        .btn-edit { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-        .btn-cancel { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
+        /* 按鈕樣式 (取消訂位與修改備註一致) */
+        .btn-action { flex: 1; padding: 0.85rem; border-radius: 0.75rem; font-weight: 700; font-size: 1rem; text-align: center; transition: 0.2s; border: 1px solid #e2e8f0; }
+        .btn-edit { background: #f1f5f9; color: #475569; }
         .btn-edit:active { transform: scale(0.95); background: #e2e8f0; }
         
-        /* 自定義彈窗 (Modal) */
+        /* Modal 彈窗 */
         #custom-modal { 
             position: fixed; inset: 0; 
             background: rgba(15, 23, 42, 0.6); 
@@ -71,28 +69,24 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Loading */
         #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 500; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0ea5e9; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <!-- 載入中畫面 -->
-    <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold text-lg">同步資料中...</p></div>
+    <!-- 載入中 -->
+    <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold text-lg">讀取資料中...</p></div>
 
-    <!-- 自定義彈窗 -->
+    <!-- 修改備註彈窗 -->
     <div id="custom-modal">
         <div class="modal-content">
-            <h3 id="modal-title" class="text-xl font-black text-slate-800 mb-2">標題</h3>
-            <p id="modal-desc" class="text-base text-slate-500 mb-5">描述文字</p>
-            
-            <input type="text" id="modal-input-text" class="hidden w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="請輸入內容...">
-            <input type="datetime-local" id="modal-input-date" class="hidden w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50 font-bold text-slate-700">
-
+            <h3 id="modal-title" class="text-xl font-black text-slate-800 mb-2">修改備註</h3>
+            <p id="modal-desc" class="text-base text-slate-500 mb-5">請輸入新的備註內容：</p>
+            <input type="text" id="modal-input-text" class="w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500">
             <div class="flex gap-4">
                 <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-xl text-lg">取消</button>
-                <button id="modal-confirm" class="flex-1 py-4 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-100 text-lg">確定修改</button>
+                <button id="modal-confirm" class="flex-1 py-4 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-100 text-lg">確定</button>
             </div>
         </div>
     </div>
@@ -112,46 +106,11 @@
     </div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbz50U3XVo7OAHsA4y6J1cl1yPVR6OWVrtpEQfAyZfHWi2jAkaavQcq1cwWjfaOoTw8U/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxZPuR1WJpHs1oJGs-ua8pfl1W_gJ18w_fpLxToJ2zQ6Ud63yIp0hx-WaA9D81qjAHY/exec";
         const LIFF_ID = "2009349137-5SWKczS7"; 
         let currentUserId = "";
 
-        function showModal({ title, desc, type, defaultValue, onConfirm }) {
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-desc').innerText = desc;
-            
-            const textInput = document.getElementById('modal-input-text');
-            const dateInput = document.getElementById('modal-input-date');
-            
-            textInput.classList.add('hidden');
-            dateInput.classList.add('hidden');
-
-            if (type === 'date') {
-                dateInput.classList.remove('hidden');
-                if (defaultValue) {
-                    const parts = defaultValue.split(' ');
-                    if (parts.length === 2) {
-                        dateInput.value = `${parts[0]}T${parts[1]}`;
-                    }
-                }
-            } else {
-                textInput.classList.remove('hidden');
-                textInput.value = defaultValue || "";
-            }
-
-            document.getElementById('custom-modal').style.display = 'flex';
-            
-            document.getElementById('modal-confirm').onclick = () => {
-                const finalValue = type === 'date' ? dateInput.value.replace('T', ' ') : textInput.value;
-                closeModal();
-                if (onConfirm) onConfirm(finalValue);
-            };
-        }
-
-        function closeModal() {
-            document.getElementById('custom-modal').style.display = 'none';
-        }
-
+        // 初始化 LIFF
         async function init() {
             try {
                 if (window.location.hostname === "localhost" || !navigator.userAgent.includes("Line")) {
@@ -167,6 +126,7 @@
             } catch (err) { console.error(err); }
         }
 
+        // 讀取訂單
         async function fetchOrders() {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
@@ -188,6 +148,7 @@
             }
         }
 
+        // 渲染卡片
         function renderOrders(orders) {
             const listDiv = document.getElementById('order-list');
             listDiv.innerHTML = '';
@@ -195,13 +156,14 @@
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 
-                const typeDisplay = order.type === "桌菜" ? `桌菜 (${order.price || order.tableValue})` : order.type;
+                // 這裡對應 App Script 回傳的 price 欄位
+                const typeDisplay = order.type === "桌菜" ? `桌菜 (${order.price || ''})` : order.type;
                 const isClosed = order.status === "已取消";
                 
                 card.innerHTML = `
                     <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                         <div class="info-row !mb-0">
-                            <span class="info-label !w-auto mr-2">訂位編號</span>
+                            <span class="info-label !w-auto mr-2 text-sm">訂單編號</span>
                             <span class="info-value text-sky-600 font-mono text-xl tracking-tighter">${order.id}</span>
                         </div>
                         <span class="status-badge status-${order.status}">${order.status}</span>
@@ -210,24 +172,21 @@
                     <div class="space-y-2 bg-slate-50/60 p-4 rounded-2xl mb-5">
                         <div class="info-row"><span class="info-label">姓名</span><span class="info-value text-xl">${order.name}</span></div>
                         <div class="info-row"><span class="info-label">電話</span><span class="info-value">${order.phone}</span></div>
-                        <div class="info-row"><span class="info-label">預訂時間</span><span class="info-value text-amber-600">${order.date} ${order.time}</span></div>
-                        <div class="info-row"><span class="info-label">人數 / 桌數</span><span class="info-value">${order.people} 人 / ${order.tables} 桌</span></div>
+                        <div class="info-row"><span class="info-label">時間</span><span class="info-value text-amber-600">${order.date} ${order.time}</span></div>
+                        <div class="info-row"><span class="info-label">人數/桌數</span><span class="info-value">${order.people}人 / ${order.tables}桌</span></div>
                         <div class="info-row"><span class="info-label">類型</span><span class="info-value">${typeDisplay}</span></div>
                         <div class="info-row items-start whitespace-normal">
-                            <span class="info-label">備註說明</span>
-                            <span class="info-value">${order.note || '無'}</span>
+                            <span class="info-label">備註</span>
+                            <span class="info-value text-slate-500 font-normal text-sm leading-relaxed">${order.note || '無'}</span>
                         </div>
                     </div>
 
                     ${isClosed ? `
-                        <div class="text-center py-3">
-                            <p class="text-slate-400 text-lg font-medium italic">- 此訂位已取消 -</p>
-                        </div>
+                        <div class="text-center py-2 text-slate-400 italic">此訂單已取消</div>
                     ` : `
-                        <div class="flex flex-wrap gap-3">
-                            <button onclick="handleEditTime('${order.id}', '${order.date} ${order.time}')" class="btn-action btn-edit">修改時間</button>
+                        <div class="flex gap-3">
                             <button onclick="handleEditNote('${order.id}', '${order.note}')" class="btn-action btn-edit">修改備註</button>
-                            <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel w-full sm:w-auto">取消訂位</button>
+                            <button onclick="handleCancel('${order.id}')" class="btn-action btn-edit">取消訂位</button>
                         </div>
                     `}
                 `;
@@ -235,40 +194,37 @@
             });
         }
 
-        async function handleEditTime(orderId, oldTime) {
-            showModal({
-                title: "修改預約時間",
-                desc: "請選擇新的日期與時間：",
-                type: "date",
-                defaultValue: oldTime,
-                onConfirm: async (newTime) => {
-                    if (newTime) {
-                        await updateOrder({ action: 'updateTime', orderId: orderId, time: newTime });
-                    }
-                }
-            });
+        // 修改與取消邏輯
+        function showModal({ title, defaultValue, onConfirm }) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-input-text').value = defaultValue || "";
+            document.getElementById('custom-modal').style.display = 'flex';
+            document.getElementById('modal-confirm').onclick = () => {
+                const val = document.getElementById('modal-input-text').value;
+                closeModal();
+                onConfirm(val);
+            };
         }
+
+        function closeModal() { document.getElementById('custom-modal').style.display = 'none'; }
 
         async function handleEditNote(orderId, oldNote) {
             showModal({
                 title: "修改備註",
-                desc: "請更新您的需求說明：",
-                type: "text",
                 defaultValue: oldNote,
                 onConfirm: async (newNote) => {
-                    if (newNote !== null && newNote !== oldNote) {
-                        await updateOrder({ action: 'updateNote', orderId: orderId, note: newNote });
-                    }
+                    await updateOrder({ action: 'updateNote', orderId: orderId, note: newNote });
                 }
             });
         }
 
         function handleCancel(orderId) {
-            if (confirm("⚠️ 確定要取消這筆訂位嗎？")) {
+            if (confirm("確定要取消這筆訂位嗎？")) {
                 updateOrder({ action: 'cancelOrder', orderId: orderId });
             }
         }
 
+        // 核心更新函數
         async function updateOrder(params) {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
@@ -276,17 +232,17 @@
                     method: "POST",
                     body: JSON.stringify(params)
                 });
+                const res = await response.json().catch(() => ({}));
                 
-                const result = await response.json();
-                if (result.result === "success") {
+                // 判斷回傳，App Script 有時用 status 有時用 result，這裡做兼容處理
+                if (res.status === "success" || res.result === "success") {
                     setTimeout(fetchOrders, 800);
                 } else {
-                    alert("更新失敗：" + result.message);
-                    fetchOrders();
+                    setTimeout(fetchOrders, 1000);
                 }
             } catch (err) {
-                console.error("Update Error:", err);
-                setTimeout(fetchOrders, 1000);
+                console.warn("Update notice:", err);
+                setTimeout(fetchOrders, 1200);
             }
         }
 
