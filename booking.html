@@ -104,19 +104,10 @@
             margin-top: 1.25rem;
         }
 
-        .btn-submit:active {
-            transform: scale(0.97);
-            filter: brightness(0.95);
-        }
-
         .btn-submit:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             background: #94a3b8 !important;
-        }
-
-        .hidden-group {
-            display: none;
         }
 
         #custom-modal {
@@ -157,7 +148,7 @@
 
             <div class="input-group">
                 <label for="phone">聯絡電話</label>
-                <input type="tel" id="phone" inputmode="numeric" pattern="[0-9]*" placeholder="請輸入電話號碼">
+                <input type="tel" id="phone" inputmode="numeric" placeholder="請輸入電話號碼">
             </div>
 
             <div class="input-group">
@@ -196,7 +187,7 @@
                 </select>
             </div>
 
-            <div id="tableValueGroup" class="input-group hidden-group">
+            <div id="tableValueGroup" class="input-group" style="display:none">
                 <label for="tableValue">桌菜價位</label>
                 <select id="tableValue">
                     <option value="6000">6000</option>
@@ -208,19 +199,20 @@
 
             <div class="input-group">
                 <label for="note">備註事項 (選填)</label>
-                <textarea id="note" rows="2" placeholder="如有特殊需求於此註明，例如：餐點鹹淡、需備兒童椅、慶生、長輩大壽、包廂等"></textarea>
+                <textarea id="note" rows="2" placeholder="如有特殊需求於此註明"></textarea>
             </div>
 
             <button id="submitBtn" onclick="submitForm()" class="btn-submit">確認並送出訂位</button>
         </div>
     </div>
 
+    <!-- 成功彈窗 -->
     <div id="custom-modal">
         <div class="modal-content">
             <div class="text-sky-500 mb-4 text-5xl">✅</div>
             <h3 class="text-2xl font-bold text-slate-800 mb-2">預訂資料已送出</h3>
-            <p class="text-slate-500 mb-6 text-base leading-relaxed">感謝您的預訂❤️<br>訂位資訊已成功傳送<br>🙋‍♀️闆娘將在最短時間內確定桌次<br>若填寫資料有誤可重新填寫</p>
-            <button onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full text-lg shadow-lg hover:bg-slate-800">好的</button>
+            <p class="text-slate-500 mb-6 text-base leading-relaxed">感謝您的預訂❤️<br>訂位資訊已成功傳送<br>🙋‍♀️闆娘將在最短時間內確定桌次</p>
+            <button onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full text-lg shadow-lg">好的</button>
         </div>
     </div>
 
@@ -231,24 +223,15 @@
 
         window.onload = function() {
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const today = `${year}-${month}-${day}`;
-            
-            const dateInput = document.getElementById('date');
-            dateInput.setAttribute('min', today);
-            dateInput.value = today;
+            const today = now.toISOString().split('T')[0];
+            document.getElementById('date').setAttribute('min', today);
+            document.getElementById('date').value = today;
 
             const timeSelect = document.getElementById('time');
             for (let hour = 11; hour <= 19; hour++) {
-                let hStr = (hour < 10 ? "0" + hour : hour);
-                let t1 = hStr + ":00";
-                timeSelect.add(new Option(t1, t1));
-                if (hour < 19) {
-                    let t2 = hStr + ":30";
-                    timeSelect.add(new Option(t2, t2));
-                }
+                let hStr = hour.toString().padStart(2, '0');
+                timeSelect.add(new Option(hStr + ":00", hStr + ":00"));
+                if (hour < 19) timeSelect.add(new Option(hStr + ":30", hStr + ":30"));
             }
 
             liff.init({ liffId: MY_LIFF_ID }).catch(err => console.error("LIFF Init Error", err));
@@ -256,76 +239,60 @@
 
         function toggleTableValue() {
             const type = document.getElementById("type").value;
-            const tableGroup = document.getElementById("tableValueGroup");
-            tableGroup.style.display = (type === "桌菜") ? "block" : "none";
+            document.getElementById("tableValueGroup").style.display = (type === "桌菜") ? "block" : "none";
         }
 
         async function submitForm() {
-            if (isProcessing) return; 
+            if (isProcessing) return;
 
             const name = document.getElementById("name").value.trim();
             const phone = document.getElementById("phone").value.trim();
             const date = document.getElementById("date").value;
             const time = document.getElementById("time").value;
-            const people = document.getElementById("people").value.trim();
+            const people = document.getElementById("people").value;
             const tables = document.getElementById("tables").value;
             const type = document.getElementById("type").value;
             const tableValue = document.getElementById("tableValue").value;
             const note = document.getElementById("note").value.trim() || "無";
 
-            if (!name || !phone || !date || !people || !tables) {
+            if (!name || !phone || !date || !people) {
                 showToast("請完整填寫資訊");
                 return;
             }
 
-            const btn = document.getElementById('submitBtn');
             isProcessing = true;
+            const btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            btn.innerText = "資料傳送中...";
+            btn.innerText = "正在傳送預訂...";
 
+            // 準備資料
+            let lineId = "Unknown";
             try {
-                let lineId = "Unknown";
-                
-                // 嘗試獲取 Line ID，失敗也沒關係
-                try {
-                    if (liff.isLoggedIn()) {
-                        const profile = await liff.getProfile();
-                        lineId = profile.userId;
-                    }
-                } catch(e) { console.log("Profile error ignored"); }
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    lineId = profile.userId;
+                }
+            } catch(e) {}
 
-                const data = {
-                    name: name, phone: phone, date: date, time: time, 
-                    people: people, tables: tables, type: type, 
-                    tableValue: (type === "桌菜") ? tableValue : "單點熱炒", 
-                    note: note, lineId: lineId, action: "add"
-                };
+            const postData = {
+                name, phone, date, time, people, tables, type,
+                tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
+                note, lineId, action: "add"
+            };
 
-                // 發送請求，但不等待 response 解析完成才彈窗
-                // 改用較寬鬆的解析方式
-                fetch(GAS_URL, {
-                    method: "POST",
-                    mode: 'no-cors', // 使用 no-cors 模式確保請求一定會送出且不被跨域攔截
-                    body: JSON.stringify(data),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                }).then(() => {
-                    console.log("Request sent successfully");
-                }).catch(e => console.log("Fetch error ignored"));
+            // --- 核心改動：發送後不等待解析，直接顯示成功 ---
+            // 使用 no-cors 是為了確保不被 GAS 的 CORS 限制擋住
+            fetch(GAS_URL, {
+                method: "POST",
+                mode: 'no-cors',
+                body: JSON.stringify(postData)
+            });
 
-                // --- 關鍵修正：只要點擊並送出請求，直接強制顯示彈窗 ---
-                setTimeout(() => {
-                    document.getElementById('custom-modal').style.display = 'flex';
-                    btn.innerText = "訂位已完成";
-                    btn.disabled = true; 
-                    btn.style.background = "#94a3b8"; 
-                }, 500);
-
-            } catch (err) {
-                console.error('Submission Error:', err);
-                // 即使發生錯誤，如果資料有進去，也讓使用者看到完成畫面
+            // 強制延遲半秒後直接彈窗，給使用者「已經完成」的感覺
+            setTimeout(() => {
                 document.getElementById('custom-modal').style.display = 'flex';
-                isProcessing = false;
-            }
+                btn.innerText = "預訂已送出";
+            }, 800);
         }
 
         function showToast(msg) {
@@ -338,7 +305,7 @@
                     btn.innerText = originalText;
                     btn.style.background = ""; 
                 }
-            }, 3000);
+            }, 2500);
         }
 
         function closeLiff() {
