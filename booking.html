@@ -70,12 +70,6 @@
             line-height: 1.5;
         }
 
-        input[type="date"] {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
         ::placeholder {
             color: #94a3b8;
             opacity: 1;
@@ -216,7 +210,7 @@
                 <textarea id="note" rows="2" placeholder="如有特殊需求於此註明，例如：餐點鹹淡、需備兒童椅、慶生、長輩大壽、包廂等"></textarea>
             </div>
 
-            <button onclick="submitForm()" class="btn-submit">確認並送出訂位</button>
+            <button id="submitBtn" onclick="submitForm()" class="btn-submit">確認並送出訂位</button>
         </div>
     </div>
 
@@ -280,13 +274,12 @@
                 return;
             }
 
-            const btn = document.querySelector('.btn-submit');
+            const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerText = "處理中...";
 
             try {
-                // 初始化 LIFF 並取得 Profile
-                await liff.init({ liffId: MY_LIFF_ID });
+                // 確保 LIFF 初始化
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
@@ -308,11 +301,6 @@
                     action: "add"
                 };
 
-                /**
-                 * 解決跨域關鍵：
-                 * 1. 使用 mode: 'cors' 與 redirect: 'follow'
-                 * 2. 使用 text/plain 作為 Content-Type 可以避開 OPTIONS 預檢請求
-                 */
                 const response = await fetch(GAS_URL, {
                     method: "POST",
                     mode: 'cors',
@@ -323,42 +311,42 @@
                     }
                 });
 
-                // GAS 成功時會回傳 JSON 字串
                 const result = await response.json();
 
                 if (result.result === "success") {
-                    let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
-                    let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
-                    
-                    const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n\n🙋‍♀️ 訂單編號：${result.id}\n請靜候闆娘確認！`;
-
-                    if (liff.isInClient()) {
-                        await liff.sendMessages([{ type: "text", text: message }]);
-                    }
-                    
+                    // 先顯示成功視窗
                     document.getElementById('custom-modal').style.display = 'flex';
+                    btn.innerText = "完成訂位";
+
+                    // 非同步嘗試發送訊息，失敗也不影響彈窗顯示
+                    if (liff.isInClient()) {
+                        let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
+                        const pushMsg = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n\n🙋‍♀️ 訂單編號：${result.id}\n請靜候闆娘確認！`;
+                        
+                        liff.sendMessages([{ type: "text", text: pushMsg }]).catch(e => {
+                            console.log("LINE 訊息發送失敗，但不影響流程", e);
+                        });
+                    }
                 } else {
-                    throw new Error(result.message || "系統寫入失敗");
+                    throw new Error(result.message || "系統錯誤");
                 }
 
             } catch (err) {
                 console.error('Submission Error:', err);
-                // 為了除錯方便，這裡可以讓 toast 顯示久一點
-                showToast("連線失敗或權限不足");
-            } finally {
+                showToast("連線失敗，請檢查網路");
                 btn.disabled = false;
                 btn.innerText = "確認並送出訂位";
             }
         }
 
         function showToast(msg) {
-            const btn = document.querySelector('.btn-submit');
+            const btn = document.getElementById('submitBtn');
             const originalText = "確認並送出訂位";
             btn.innerText = msg;
             btn.style.background = "#ef4444"; 
             setTimeout(() => {
                 btn.innerText = originalText;
-                btn.style.background = ""; // 回復原本的 Gradient
+                btn.style.background = ""; 
             }, 3000);
         }
 
