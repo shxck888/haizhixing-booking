@@ -14,16 +14,12 @@
             background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%);
             min-height: 100vh;
             padding: 1.25rem;
+            padding-bottom: 8rem; /* 預留空間給除錯面板 */
         }
 
         .container {
             max-width: 480px;
             margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 1.5rem;
         }
 
         .order-card {
@@ -43,58 +39,36 @@
             font-weight: 700;
         }
 
-        /* 狀態顏色定義 */
         .status-待確認 { background: #fef3c7; color: #92400e; }
         .status-已確認 { background: #dcfce7; color: #166534; }
-        .status-需改時間 { background: #ffedd5; color: #9a3412; }
         .status-已取消 { background: #fee2e2; color: #991b1b; }
-        .status-已拒絕 { background: #f1f5f9; color: #475569; }
         .status-已完成 { background: #e0f2fe; color: #0369a1; }
-        .status-未知 { background: #f1f5f9; color: #64748b; }
 
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            color: #475569;
-        }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #475569; }
+        .info-label { font-weight: 500; color: #94a3b8; }
 
-        .info-label {
-            font-weight: 500;
-            color: #94a3b8;
-        }
-
-        .btn-action {
-            flex: 1;
-            padding: 0.75rem;
-            border-radius: 0.75rem;
-            font-weight: 700;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-            text-align: center;
-        }
-
+        .btn-action { flex: 1; padding: 0.75rem; border-radius: 0.75rem; font-weight: 700; font-size: 0.9rem; text-align: center; }
         .btn-edit { background: #f1f5f9; color: #475569; }
         .btn-cancel { background: #fff1f2; color: #e11d48; }
 
         #loading-screen {
-            position: fixed;
-            inset: 0;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
+            position: fixed; inset: 0; background: white;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            border: 4px solid #f3f3f3; border-top: 4px solid #0ea5e9;
+            border-radius: 50%; width: 40px; height: 40px;
             animation: spin 1s linear infinite;
+        }
+
+        /* 除錯面板 */
+        #debug-panel {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(15, 23, 42, 0.95); color: #22d3ee;
+            font-family: monospace; font-size: 11px; padding: 12px;
+            z-index: 999; height: 120px; overflow-y: auto;
+            border-top: 2px solid #0ea5e9;
         }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -104,13 +78,13 @@
 
     <div id="loading-screen">
         <div class="spinner"></div>
-        <p class="mt-4 text-slate-500 font-bold">正在讀取訂位記錄...</p>
+        <p class="mt-4 text-slate-500 font-bold">正在讀取記錄...</p>
     </div>
 
     <div class="container">
-        <div class="header">
+        <div class="header text-center mb-6">
             <h2 class="text-2xl font-extrabold text-sky-900 tracking-tight">我的訂位管理</h2>
-            <p class="text-slate-500 font-bold text-sm mt-1">海之星餐廳專屬查詢</p>
+            <p class="text-slate-500 font-bold text-sm mt-1">海之星餐廳</p>
         </div>
 
         <div id="order-list"></div>
@@ -118,55 +92,84 @@
         <div id="no-data" class="hidden text-center py-12">
             <div class="text-6xl mb-4">🍽️</div>
             <p class="text-slate-500 font-bold text-lg">目前尚無訂位紀錄</p>
-            <p class="text-slate-400 text-sm mt-2">若您剛完成預訂，請稍候再試</p>
+            <p class="text-slate-400 text-sm mt-2">請確認您是否使用相同的 LINE 帳號預訂</p>
+            <button onclick="fetchOrders()" class="mt-6 px-4 py-2 bg-sky-100 text-sky-700 rounded-full text-sm font-bold">手動刷新</button>
         </div>
     </div>
 
+    <!-- 除錯面板 -->
+    <div id="debug-panel"></div>
+
     <script>
-        // 確認 GAS 網址是否正確 (建議重新部署並獲取最新網址)
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxlUfjIq7oolZKLI9g42jdXr_MVLXjEUjU3GXj1Hrb16SQ_y-yky5RTKDCsU2fpllR9/exec";
-        const LIFF_ID = "2009355251-gFwmzHaQ";
+        // ！！請確認這裡的網址是您剛剛「部署新版本」後的最新網址！！
+        const GAS_URL = "https://script.google.com/macros/s/AKfycby5o68wMxbXbeBjMpq5rdeVHqvvvOyIPh5uNhpXEue6rpaMWHMa0cL_TaoqEoMSBnOG/exec";
+        const LIFF_ID = "2009355251-gFwmzHaQ"; 
+        
         let currentUserId = "";
+
+        // 顯示除錯訊息的函數
+        function logDebug(msg) {
+            const panel = document.getElementById('debug-panel');
+            const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+            panel.innerHTML += `<div class="mb-1">[${time}] ${msg}</div>`;
+            panel.scrollTop = panel.scrollHeight; // 自動捲動到最底
+            console.log(msg);
+        }
 
         async function init() {
             try {
+                logDebug("開始初始化 LIFF...");
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
+                    logDebug("尚未登入，準備跳轉登入畫面...");
                     liff.login();
                     return;
                 }
                 const profile = await liff.getProfile();
                 currentUserId = profile.userId;
-                console.log("UserID:", currentUserId);
+                logDebug("✅ 成功獲取 UserID: " + currentUserId);
                 fetchOrders();
             } catch (err) {
-                console.error("LIFF Init Error", err);
-                document.getElementById('loading-screen').innerHTML = "<p class='p-4 text-red-500'>LIFF 載入失敗</p>";
+                logDebug("❌ LIFF 錯誤: " + err.message);
+                document.getElementById('loading-screen').innerHTML = `<p class='p-4 text-red-500 text-center font-bold'>系統異常<br>${err.message}</p>`;
             }
         }
 
         async function fetchOrders() {
             document.getElementById('loading-screen').style.display = 'flex';
+            logDebug("開始呼叫 GAS API 取得資料...");
             try {
-                // 使用 JSONP 或確保 GAS 有正確回傳 JSON
-                const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}&t=${Date.now()}`)
-                if (!response.ok) throw new Error('網路回應不正確');
+                // 加上時間戳 (t=...) 避免手機瀏覽器快取舊資料
+                const url = `${GAS_URL}?action=query&lineId=${currentUserId}&t=${new Date().getTime()}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) throw new Error('伺服器連線失敗');
                 
                 const result = await response.json();
-                document.getElementById('loading-screen').style.display = 'none';
+                
+                if (result.status === 'success') {
+                    const debugInfo = result.debug ? JSON.stringify(result.debug) : "無除錯資訊";
+                    logDebug(`✅ GAS 回傳成功: ${debugInfo}`);
+                    
+                    document.getElementById('loading-screen').style.display = 'none';
 
-                if (result.status === 'success' && result.data && result.data.length > 0) {
-                    renderOrders(result.data);
-                    document.getElementById('no-data').classList.add('hidden');
+                    if (result.data && result.data.length > 0) {
+                        logDebug(`👉 準備渲染 ${result.data.length} 筆資料`);
+                        renderOrders(result.data);
+                        document.getElementById('no-data').classList.add('hidden');
+                    } else {
+                        logDebug(`⚠️ 查詢結果為 0 筆`);
+                        document.getElementById('order-list').innerHTML = '';
+                        document.getElementById('no-data').classList.remove('hidden');
+                    }
                 } else {
-                    document.getElementById('order-list').innerHTML = '';
-                    document.getElementById('no-data').classList.remove('hidden');
+                    logDebug(`❌ GAS 回傳錯誤: ${result.message}`);
+                    document.getElementById('loading-screen').style.display = 'none';
                 }
+
             } catch (err) {
-                console.error("Fetch Error:", err);
+                logDebug("❌ Fetch 錯誤: " + err.message);
                 document.getElementById('loading-screen').style.display = 'none';
-                // 顯示錯誤但不使用 alert
-                document.getElementById('order-list').innerHTML = `<div class='text-center text-red-500 font-bold p-8'>讀取失敗：${err.message}</div>`;
             }
         }
 
@@ -192,23 +195,23 @@
                     
                     <div class="space-y-2 mb-6 text-sm">
                         <div class="info-row">
-                            <span class="info-label">姓名</span>
-                            <span class="font-bold text-slate-700">${order.name}</span>
+                            <span class="info-label">姓名 / 電話</span>
+                            <span class="font-bold text-slate-700">${order.name} / ${order.phone}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">預定時間</span>
                             <span class="font-bold text-slate-700">${order.date} ${order.time}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">人數/桌數</span>
-                            <span class="font-bold text-slate-700">${order.people}人 (${order.tables}桌)</span>
+                            <span class="info-label">人數 / 桌數</span>
+                            <span class="font-bold text-slate-700">${order.people}人 (${order.tables})</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">類型</span>
-                            <span class="font-bold text-slate-700">${order.type}</span>
+                            <span class="info-label">類型 / 價位</span>
+                            <span class="font-bold text-slate-700">${order.type} / ${order.price}</span>
                         </div>
                         <div class="pt-2 border-t border-slate-100">
-                            <span class="info-label text-xs">備註</span>
+                            <span class="info-label text-xs">備註說明</span>
                             <p class="text-slate-600 mt-1">${order.note || '無'}</p>
                         </div>
                     </div>
@@ -241,18 +244,15 @@
 
         async function updateOrder(payload) {
             document.getElementById('loading-screen').style.display = 'flex';
+            logDebug(`準備發送更新請求: ${payload.action}`);
             try {
-                // 將 action 和 orderId 帶入 URL 以便 GAS 處理 (處理 CORS 問題)
                 const url = `${GAS_URL}?action=${payload.action}&orderId=${payload.orderId}&note=${encodeURIComponent(payload.note || '')}`;
-                
                 await fetch(url, { method: "POST", mode: "no-cors" });
                 
-                // 成功後延遲更新畫面
-                setTimeout(() => {
-                    fetchOrders();
-                }, 1500);
+                logDebug(`請求已送出，等待重新讀取...`);
+                setTimeout(() => { fetchOrders(); }, 1500);
             } catch (err) {
-                console.error("Update Error:", err);
+                logDebug(`❌ 更新錯誤: ${err.message}`);
                 fetchOrders();
             }
         }
