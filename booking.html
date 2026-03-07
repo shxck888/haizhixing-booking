@@ -227,6 +227,7 @@
 
     <script>
         window.onload = function() {
+            // 初始化日期
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -237,6 +238,7 @@
             dateInput.setAttribute('min', today);
             dateInput.value = today;
 
+            // 初始化時段
             const timeSelect = document.getElementById('time');
             for (let hour = 11; hour <= 19; hour++) {
                 let hStr = (hour < 10 ? "0" + hour : hour);
@@ -247,6 +249,9 @@
                     timeSelect.add(new Option(t2, t2));
                 }
             }
+
+            // 預先啟動 LIFF 讓 profile 抓取更順
+            liff.init({ liffId: "2009349137-moYNjcVA" });
         };
 
         function toggleTableValue() {
@@ -271,26 +276,35 @@
                 return;
             }
 
-            // 整理資料傳送給 GAS，ID 由後端生成
-            const data = {
-                name: name,
-                phone: phone,
-                date: date,
-                time: time,
-                people: people,
-                tables: tables,
-                type: type,
-                tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
-                note: note
-            };
-
             const btn = document.querySelector('.btn-submit');
             btn.disabled = true;
             btn.innerText = "處理中...";
 
             try {
-                // 1. 傳送到 Google Script 
-                const gasUrl = "https://script.google.com/macros/s/AKfycbyMgHRug5HLffWiJW0Dp_S84F64zyiYgajE61VdkQzXOmweRxk9QYmeacXblquw4lvu/exec"; 
+                // 1. 初始化 LIFF 並獲取使用者 Profile
+                await liff.init({ liffId: "2009349137-moYNjcVA" });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+                const profile = await liff.getProfile();
+                const lineId = profile.userId; // 取得 LINE 的 Unique ID
+
+                // 2. 整理資料傳送給 GAS
+                const data = {
+                    name: name,
+                    phone: phone,
+                    date: date,
+                    time: time,
+                    people: people,
+                    tables: tables,
+                    type: type,
+                    tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
+                    note: note,
+                    lineId: lineId // 新增 LINE ID 欄位
+                };
+
+                const gasUrl = "https://script.google.com/macros/s/AKfycbwoyAfcd4l1LXtSDX9IckU3hngi049gtv0XHp36SyFte7wV8MyDbY0G7DjSCLf91f3m/exec"; 
                 
                 await fetch(gasUrl, {
                     method: "POST",
@@ -301,13 +315,7 @@
                     body: JSON.stringify(data)
                 });
 
-                // 2. 初始化 LIFF 並傳送 LINE 訊息
-                await liff.init({ liffId: "2009349137-moYNjcVA" });
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
-
+                // 3. 傳送 LINE 訊息
                 let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
                 let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
                 
