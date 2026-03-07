@@ -43,7 +43,6 @@
             text-align: center;
         }
 
-        /* 統一所有輸入框的尺寸與高度 */
         input, select, textarea {
             width: 100%;
             height: 3.8rem; 
@@ -272,22 +271,61 @@
                 return;
             }
 
-            let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
-            let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
-            
-            const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
+            // 整理資料（此處不生成 ID，交給 GAS 處理）
+            const data = {
+                name,
+                phone,
+                date,
+                time,
+                people,
+                tables,
+                type,
+                tableValue: (type === "桌菜") ? tableValue : "N/A",
+                note
+            };
+
+            const btn = document.querySelector('.btn-submit');
+            btn.disabled = true;
+            btn.innerText = "處理中...";
 
             try {
+                // 1. 傳送到 Google Script 
+                const gasUrl = "https://script.google.com/macros/s/AKfycbyIATu1SoD36Nvg38W1cYIYNBaeJUuUjageAXTRYJFGlKaNdhqXbPlFCMJVKxrLArPs/exec"; 
+                
+                // 改用 POST 並接收回傳值 (注意：GAS 在 no-cors 模式下無法讀取回傳值，
+                // 但為了確保自動流水號，我們讓 GAS 自己計算並寫入即可。)
+                await fetch(gasUrl, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                // 2. 初始化 LIFF 並傳送 LINE 訊息
                 await liff.init({ liffId: "2009349137-moYNjcVA" });
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
+
+                let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
+                let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
+                
+                // LINE 訊息通知中，因為前端抓不到 GAS 生成的正確 ID，建議用「訂位姓名+電話末四碼」作為臨時識別，
+                // 或者直接省略編號。若一定要編號，GAS 需要處理 Webhook 或 API。
+                const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
+
                 await liff.sendMessages([{ type: "text", text: message }]);
+                
                 document.getElementById('custom-modal').style.display = 'flex';
             } catch (err) {
-                console.error('LIFF Error:', err);
-                showToast("傳送失敗，請在 LINE 內開啟");
+                console.error('Submission Error:', err);
+                showToast("發生錯誤，請稍後再試");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "確認並送出訂位";
             }
         }
 
