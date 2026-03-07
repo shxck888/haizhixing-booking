@@ -212,7 +212,7 @@
             <div class="text-sky-500 mb-4 text-5xl">✅</div>
             <h3 class="text-2xl font-bold text-slate-800 mb-2">預訂資料已送出</h3>
             <p class="text-slate-500 mb-6 text-base leading-relaxed">感謝您的預訂❤️<br>訂位資訊已成功傳送<br>🙋‍♀️闆娘將在最短時間內確定桌次</p>
-            <button onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full text-lg shadow-lg">好的</button>
+            <button id="modalCloseBtn" onclick="closeLiff()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold w-full text-lg shadow-lg active:scale-95 transition-transform">好的</button>
         </div>
     </div>
 
@@ -265,7 +265,6 @@
             btn.disabled = true;
             btn.innerText = "正在傳送預訂...";
 
-            // 準備資料
             let lineId = "Unknown";
             try {
                 if (liff.isLoggedIn()) {
@@ -280,15 +279,12 @@
                 note, lineId, action: "add"
             };
 
-            // --- 核心改動：發送後不等待解析，直接顯示成功 ---
-            // 使用 no-cors 是為了確保不被 GAS 的 CORS 限制擋住
             fetch(GAS_URL, {
                 method: "POST",
                 mode: 'no-cors',
                 body: JSON.stringify(postData)
             });
 
-            // 強制延遲半秒後直接彈窗，給使用者「已經完成」的感覺
             setTimeout(() => {
                 document.getElementById('custom-modal').style.display = 'flex';
                 btn.innerText = "預訂已送出";
@@ -308,8 +304,43 @@
             }, 2500);
         }
 
-        function closeLiff() {
-            liff.closeWindow();
+        async function closeLiff() {
+            const closeBtn = document.getElementById('modalCloseBtn');
+            closeBtn.innerText = "傳送中...";
+            closeBtn.disabled = true;
+
+            try {
+                // 在關閉前，把剛才填寫的資料抓出來發訊息
+                const name = document.getElementById("name").value;
+                const phone = document.getElementById("phone").value;
+                const date = document.getElementById("date").value;
+                const time = document.getElementById("time").value;
+                const people = document.getElementById("people").value;
+                const tables = document.getElementById("tables").value;
+                const type = document.getElementById("type").value;
+                const tableValue = document.getElementById("tableValue").value;
+                const note = document.getElementById("note").value.trim() || "無";
+
+                let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
+                let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
+
+                const confirmMsg = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
+
+                // 檢查是否在 LINE App 內，若是則發送訊息
+                if (liff.isInClient()) {
+                    await liff.sendMessages([
+                        {
+                            type: 'text',
+                            text: confirmMsg
+                        }
+                    ]);
+                }
+            } catch (e) {
+                console.error("發送確認訊息失敗", e);
+            } finally {
+                // 不管發送成功還是失敗，最後都關閉視窗
+                liff.closeWindow();
+            }
         }
     </script>
 </body>
