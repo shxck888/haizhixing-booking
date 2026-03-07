@@ -43,13 +43,14 @@
             font-weight: 700;
         }
 
-        /* 狀態顏色定義 - 根據您的截圖定義 */
+        /* 狀態顏色定義 */
         .status-待確認 { background: #fef3c7; color: #92400e; }
         .status-已確認 { background: #dcfce7; color: #166534; }
         .status-需改時間 { background: #ffedd5; color: #9a3412; }
         .status-已取消 { background: #fee2e2; color: #991b1b; }
         .status-已拒絕 { background: #f1f5f9; color: #475569; }
         .status-已完成 { background: #e0f2fe; color: #0369a1; }
+        .status-未知 { background: #f1f5f9; color: #64748b; }
 
         .info-row {
             display: flex;
@@ -103,7 +104,7 @@
 
     <div id="loading-screen">
         <div class="spinner"></div>
-        <p class="mt-4 text-slate-500 font-bold">正在讀取您的訂位記錄...</p>
+        <p class="mt-4 text-slate-500 font-bold">正在讀取訂位記錄...</p>
     </div>
 
     <div class="container">
@@ -117,14 +118,13 @@
         <div id="no-data" class="hidden text-center py-12">
             <div class="text-6xl mb-4">🍽️</div>
             <p class="text-slate-500 font-bold text-lg">目前尚無訂位紀錄</p>
-            <p class="text-slate-400 text-sm mt-2">快去預訂美味的餐點吧！</p>
+            <p class="text-slate-400 text-sm mt-2">若您剛完成預訂，請稍候再試</p>
         </div>
     </div>
 
     <script>
-        // 請確保此處為您最新的 GAS 部署網址
+        // 確認 GAS 網址是否正確 (建議重新部署並獲取最新網址)
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzt3BE8DC1nshDgZiqZFuTMISNHx4oVXPW5Stjc_DgFfhWAWjKuAesFEP1nR5X8MyYU/exec";
-        // 請更換為您在 LINE Developers 建立的新 LIFF ID
         const LIFF_ID = "2009355251-gFwmzHaQ";
         let currentUserId = "";
 
@@ -137,23 +137,25 @@
                 }
                 const profile = await liff.getProfile();
                 currentUserId = profile.userId;
+                console.log("UserID:", currentUserId);
                 fetchOrders();
             } catch (err) {
                 console.error("LIFF Init Error", err);
-                document.getElementById('loading-screen').innerHTML = "<p class='p-4 text-red-500'>LIFF 初始化失敗，請於 LINE 內開啟</p>";
+                document.getElementById('loading-screen').innerHTML = "<p class='p-4 text-red-500'>LIFF 載入失敗</p>";
             }
         }
 
         async function fetchOrders() {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
-                // 串接 GAS 的 doGet 進行查詢
+                // 使用 JSONP 或確保 GAS 有正確回傳 JSON
                 const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}`);
+                if (!response.ok) throw new Error('網路回應不正確');
+                
                 const result = await response.json();
-
                 document.getElementById('loading-screen').style.display = 'none';
 
-                if (result.status === 'success' && result.data.length > 0) {
+                if (result.status === 'success' && result.data && result.data.length > 0) {
                     renderOrders(result.data);
                     document.getElementById('no-data').classList.add('hidden');
                 } else {
@@ -161,9 +163,10 @@
                     document.getElementById('no-data').classList.remove('hidden');
                 }
             } catch (err) {
-                console.error("Fetch Error", err);
+                console.error("Fetch Error:", err);
                 document.getElementById('loading-screen').style.display = 'none';
-                alert("無法連線至伺服器");
+                // 顯示錯誤但不使用 alert
+                document.getElementById('order-list').innerHTML = `<div class='text-center text-red-500 font-bold p-8'>讀取失敗：${err.message}</div>`;
             }
         }
 
@@ -175,7 +178,6 @@
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 
-                // 狀態判斷與樣式
                 const displayStatus = order.status || "待確認";
                 const isFinalState = ['已取消', '已拒絕', '已完成'].includes(displayStatus);
 
@@ -194,7 +196,7 @@
                             <span class="font-bold text-slate-700">${order.name}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">日期時段</span>
+                            <span class="info-label">預定時間</span>
                             <span class="font-bold text-slate-700">${order.date} ${order.time}</span>
                         </div>
                         <div class="info-row">
@@ -240,19 +242,17 @@
         async function updateOrder(payload) {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
-                // 使用 POST 發送更新指令
-                await fetch(GAS_URL, {
-                    method: "POST",
-                    mode: "no-cors",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                // 提示並刷新
+                // 將 action 和 orderId 帶入 URL 以便 GAS 處理 (處理 CORS 問題)
+                const url = `${GAS_URL}?action=${payload.action}&orderId=${payload.orderId}&note=${encodeURIComponent(payload.note || '')}`;
+                
+                await fetch(url, { method: "POST", mode: "no-cors" });
+                
+                // 成功後延遲更新畫面
                 setTimeout(() => {
                     fetchOrders();
-                }, 1000);
+                }, 1500);
             } catch (err) {
-                alert("操作失敗");
+                console.error("Update Error:", err);
                 fetchOrders();
             }
         }
