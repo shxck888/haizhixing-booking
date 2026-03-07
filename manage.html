@@ -43,7 +43,7 @@
             font-weight: 700;
         }
 
-        /* 狀態顏色定義 */
+        /* 狀態顏色定義 - 根據您的截圖定義 */
         .status-待確認 { background: #fef3c7; color: #92400e; }
         .status-已確認 { background: #dcfce7; color: #166534; }
         .status-需改時間 { background: #ffedd5; color: #9a3412; }
@@ -75,7 +75,6 @@
 
         .btn-edit { background: #f1f5f9; color: #475569; }
         .btn-cancel { background: #fff1f2; color: #e11d48; }
-        .btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 
         #loading-screen {
             position: fixed;
@@ -104,7 +103,7 @@
 
     <div id="loading-screen">
         <div class="spinner"></div>
-        <p class="mt-4 text-slate-500 font-bold">正在讀取您的訂位...</p>
+        <p class="mt-4 text-slate-500 font-bold">正在讀取您的訂位記錄...</p>
     </div>
 
     <div class="container">
@@ -123,8 +122,10 @@
     </div>
 
     <script>
+        // 請確保此處為您最新的 GAS 部署網址
         const GAS_URL = "https://script.google.com/macros/s/AKfycbyIATu1SoD36Nvg38W1cYIYNBaeJUuUjageAXTRYJFGlKaNdhqXbPlFCMJVKxrLArPs/exec";
-        const LIFF_ID = "2009349137-moYNjcVA";
+        // 請更換為您在 LINE Developers 建立的新 LIFF ID
+        const LIFF_ID = "2009355251-gFwmzHaQ";
         let currentUserId = "";
 
         async function init() {
@@ -139,12 +140,14 @@
                 fetchOrders();
             } catch (err) {
                 console.error("LIFF Init Error", err);
+                document.getElementById('loading-screen').innerHTML = "<p class='p-4 text-red-500'>LIFF 初始化失敗，請於 LINE 內開啟</p>";
             }
         }
 
         async function fetchOrders() {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
+                // 串接 GAS 的 doGet 進行查詢
                 const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}`);
                 const result = await response.json();
 
@@ -160,6 +163,7 @@
             } catch (err) {
                 console.error("Fetch Error", err);
                 document.getElementById('loading-screen').style.display = 'none';
+                alert("無法連線至伺服器");
             }
         }
 
@@ -171,33 +175,38 @@
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 
-                // 判斷是否可以操作 (已取消、已拒絕、已完成 不可再操作)
-                const isFinalState = ['已取消', '已拒絕', '已完成'].includes(order.status);
+                // 狀態判斷與樣式
+                const displayStatus = order.status || "待確認";
+                const isFinalState = ['已取消', '已拒絕', '已完成'].includes(displayStatus);
 
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
                         <div>
                             <span class="text-xs font-bold text-slate-400 block mb-1">訂單編號</span>
-                            <span class="text-lg font-black text-slate-800">${order.id}</span>
+                            <span class="text-sm font-black text-slate-800 break-all">${order.id}</span>
                         </div>
-                        <span class="status-badge status-${order.status}">${order.status}</span>
+                        <span class="status-badge status-${displayStatus}">${displayStatus}</span>
                     </div>
                     
                     <div class="space-y-2 mb-6 text-sm">
+                        <div class="info-row">
+                            <span class="info-label">姓名</span>
+                            <span class="font-bold text-slate-700">${order.name}</span>
+                        </div>
                         <div class="info-row">
                             <span class="info-label">日期時段</span>
                             <span class="font-bold text-slate-700">${order.date} ${order.time}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">人數/桌數</span>
-                            <span class="font-bold text-slate-700">${order.people}人 (${order.tables})</span>
+                            <span class="font-bold text-slate-700">${order.people}人 (${order.tables}桌)</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">用餐類型</span>
-                            <span class="font-bold text-slate-700">${order.type} ${order.tableValue !== '單點熱炒' ? '/ '+order.tableValue : ''}</span>
+                            <span class="info-label">類型</span>
+                            <span class="font-bold text-slate-700">${order.type}</span>
                         </div>
                         <div class="pt-2 border-t border-slate-100">
-                            <span class="info-label text-xs">備註說明</span>
+                            <span class="info-label text-xs">備註</span>
                             <p class="text-slate-600 mt-1">${order.note || '無'}</p>
                         </div>
                     </div>
@@ -208,7 +217,7 @@
                         <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel">取消訂位</button>
                     </div>
                     ` : `
-                    <p class="text-center text-xs text-slate-400 font-medium italic">此訂單已結案，無法修改</p>
+                    <p class="text-center text-xs text-slate-400 font-medium italic">此訂位已結案 (${displayStatus})</p>
                     `}
                 `;
                 listDiv.appendChild(card);
@@ -231,16 +240,19 @@
         async function updateOrder(payload) {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
+                // 使用 POST 發送更新指令
                 await fetch(GAS_URL, {
                     method: "POST",
                     mode: "no-cors",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 });
-                // 因為 no-cors 無法直接看 JSON，延遲一下直接重新整理
-                setTimeout(fetchOrders, 1000);
+                // 提示並刷新
+                setTimeout(() => {
+                    fetchOrders();
+                }, 1000);
             } catch (err) {
-                alert("操作失敗，請稍後再試");
+                alert("操作失敗");
                 fetchOrders();
             }
         }
