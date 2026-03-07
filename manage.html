@@ -17,31 +17,32 @@
             padding-bottom: 2rem; 
         }
 
-        .container { max-width: 480px; margin: 0 auto; }
+        .container { max-width: 520px; margin: 0 auto; }
         
-        /* 訂單卡片 */
+        /* 訂位卡片 */
         .order-card { 
             background: rgba(255, 255, 255, 0.96); 
             backdrop-filter: blur(12px); 
-            border-radius: 1.25rem; 
+            border-radius: 1.5rem; 
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); 
-            padding: 1.25rem; 
-            margin-bottom: 1rem; 
+            padding: 1.5rem; 
+            margin-bottom: 1.25rem; 
             border: 1px solid rgba(255, 255, 255, 0.3); 
         }
 
-        .info-row { display: flex; align-items: center; margin-bottom: 0.4rem; font-size: 0.9rem; white-space: nowrap; }
-        .info-label { width: 85px; flex-shrink: 0; color: #94a3b8; font-weight: 500; }
-        .info-value { color: #334155; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+        /* 調大文字大小 */
+        .info-row { display: flex; align-items: center; margin-bottom: 0.6rem; font-size: 1.1rem; white-space: nowrap; }
+        .info-label { width: 100px; flex-shrink: 0; color: #64748b; font-weight: 500; }
+        .info-value { color: #1e293b; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
         
         /* 狀態標籤 */
-        .status-badge { padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.9rem; font-weight: 700; }
         .status-待確認 { background: #fef3c7; color: #92400e; }
         .status-已確認 { background: #dcfce7; color: #166534; }
         .status-已取消 { background: #fee2e2; color: #991b1b; }
 
-        /* 按鈕 */
-        .btn-action { flex: 1; padding: 0.65rem; border-radius: 0.6rem; font-weight: 700; font-size: 0.85rem; text-align: center; transition: 0.2s; }
+        /* 按鈕調大 */
+        .btn-action { flex: 1; padding: 0.85rem; border-radius: 0.75rem; font-weight: 700; font-size: 1rem; text-align: center; transition: 0.2s; }
         .btn-edit { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
         .btn-cancel { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
         .btn-edit:active { transform: scale(0.95); background: #e2e8f0; }
@@ -58,9 +59,9 @@
         }
         .modal-content { 
             background: white; 
-            width: 100%; max-width: 360px; 
+            width: 100%; max-width: 400px; 
             border-radius: 1.5rem; 
-            padding: 1.5rem; 
+            padding: 2rem; 
             box-shadow: 0 20px 50px rgba(0,0,0,0.3); 
             transform: translateY(0);
             animation: modalIn 0.3s ease-out;
@@ -72,41 +73,41 @@
 
         /* Loading */
         #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 500; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0ea5e9; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0ea5e9; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <!-- 載入中畫面 -->
-    <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold">同步資料中...</p></div>
+    <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold text-lg">同步資料中...</p></div>
 
     <!-- 自定義彈窗 -->
     <div id="custom-modal">
         <div class="modal-content">
-            <h3 id="modal-title" class="text-lg font-black text-slate-800 mb-1">標題</h3>
-            <p id="modal-desc" class="text-sm text-slate-500 mb-4">描述文字</p>
+            <h3 id="modal-title" class="text-xl font-black text-slate-800 mb-2">標題</h3>
+            <p id="modal-desc" class="text-base text-slate-500 mb-5">描述文字</p>
             
-            <input type="text" id="modal-input-text" class="hidden w-full p-3 border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="請輸入內容...">
-            <input type="datetime-local" id="modal-input-date" class="hidden w-full p-3 border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50 font-bold text-slate-700">
+            <input type="text" id="modal-input-text" class="hidden w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="請輸入內容...">
+            <input type="datetime-local" id="modal-input-date" class="hidden w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50 font-bold text-slate-700">
 
-            <div class="flex gap-3">
-                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">取消</button>
-                <button id="modal-confirm" class="flex-1 py-3 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-100">確定修改</button>
+            <div class="flex gap-4">
+                <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-xl text-lg">取消</button>
+                <button id="modal-confirm" class="flex-1 py-4 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-100 text-lg">確定修改</button>
             </div>
         </div>
     </div>
 
     <div class="container">
-        <div class="header text-center mb-6 pt-4">
-            <h2 class="text-2xl font-black text-sky-900 tracking-tight">我的訂位管理</h2>
-            <p class="text-slate-500 text-xs mt-1">海之星餐廳</p>
+        <div class="header text-center mb-8 pt-6">
+            <h2 class="text-3xl font-black text-sky-900 tracking-tight">我的訂位管理</h2>
+            <p class="text-slate-500 text-sm mt-2">海之星餐廳</p>
         </div>
         
-        <div id="order-list" class="space-y-4"></div>
+        <div id="order-list" class="space-y-5"></div>
         
-        <div id="no-data" class="hidden text-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-slate-300">
-            <p class="text-slate-400 font-bold">目前無訂位紀錄</p>
-            <button onclick="fetchOrders()" class="mt-4 px-6 py-2 bg-sky-500 text-white rounded-full text-xs font-bold shadow-lg shadow-sky-200">重新整理</button>
+        <div id="no-data" class="hidden text-center py-24 bg-white/50 rounded-3xl border-2 border-dashed border-slate-300">
+            <p class="text-slate-400 font-bold text-lg">目前無訂位紀錄</p>
+            <button onclick="fetchOrders()" class="mt-6 px-8 py-3 bg-sky-500 text-white rounded-full text-sm font-bold shadow-lg shadow-sky-200">重新整理</button>
         </div>
     </div>
 
@@ -128,7 +129,6 @@
             if (type === 'date') {
                 dateInput.classList.remove('hidden');
                 if (defaultValue) {
-                    // 將 YYYY-MM-DD HH:mm 轉換為 datetime-local 接受的格式
                     const parts = defaultValue.split(' ');
                     if (parts.length === 2) {
                         dateInput.value = `${parts[0]}T${parts[1]}`;
@@ -154,9 +154,8 @@
 
         async function init() {
             try {
-                // 判斷開發環境
                 if (window.location.hostname === "localhost" || !navigator.userAgent.includes("Line")) {
-                    currentUserId = "U267b4a5f71f34a200282ce93a363c3b7"; // 測試用 ID
+                    currentUserId = "U267b4a5f71f34a200282ce93a363c3b7"; 
                     fetchOrders();
                 } else {
                     await liff.init({ liffId: LIFF_ID });
@@ -171,7 +170,6 @@
         async function fetchOrders() {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
-                // 使用 GET 方法查詢，加上 timestamp 防止快取
                 const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}&t=${Date.now()}`);
                 const result = await response.json();
                 document.getElementById('loading-screen').style.display = 'none';
@@ -197,40 +195,39 @@
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 
-                // 處理顯示類型
                 const typeDisplay = order.type === "桌菜" ? `桌菜 (${order.price || order.tableValue})` : order.type;
                 const isClosed = order.status === "已取消";
                 
                 card.innerHTML = `
-                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                    <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                         <div class="info-row !mb-0">
-                            <span class="info-label !w-auto mr-2">訂單編號</span>
-                            <span class="info-value text-sky-600 font-mono tracking-tighter">${order.id}</span>
+                            <span class="info-label !w-auto mr-2">訂位編號</span>
+                            <span class="info-value text-sky-600 font-mono text-xl tracking-tighter">${order.id}</span>
                         </div>
                         <span class="status-badge status-${order.status}">${order.status}</span>
                     </div>
                     
-                    <div class="space-y-1 bg-slate-50/60 p-3 rounded-xl mb-4">
-                        <div class="info-row"><span class="info-label">姓名</span><span class="info-value">${order.name}</span></div>
+                    <div class="space-y-2 bg-slate-50/60 p-4 rounded-2xl mb-5">
+                        <div class="info-row"><span class="info-label">姓名</span><span class="info-value text-xl">${order.name}</span></div>
                         <div class="info-row"><span class="info-label">電話</span><span class="info-value">${order.phone}</span></div>
                         <div class="info-row"><span class="info-label">預訂時間</span><span class="info-value text-amber-600">${order.date} ${order.time}</span></div>
                         <div class="info-row"><span class="info-label">人數 / 桌數</span><span class="info-value">${order.people} 人 / ${order.tables} 桌</span></div>
                         <div class="info-row"><span class="info-label">類型</span><span class="info-value">${typeDisplay}</span></div>
                         <div class="info-row items-start whitespace-normal">
                             <span class="info-label">備註說明</span>
-                            <span class="info-value text-slate-400 font-normal text-xs leading-relaxed">${order.note || '無'}</span>
+                            <span class="info-value text-slate-500 font-normal text-sm leading-relaxed">${order.note || '無'}</span>
                         </div>
                     </div>
 
                     ${isClosed ? `
-                        <div class="text-center py-2">
-                            <p class="text-slate-400 text-sm font-medium italic">- 此訂位已取消 -</p>
+                        <div class="text-center py-3">
+                            <p class="text-slate-400 text-lg font-medium italic">- 此訂位已取消 -</p>
                         </div>
                     ` : `
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-3">
                             <button onclick="handleEditTime('${order.id}', '${order.date} ${order.time}')" class="btn-action btn-edit">修改時間</button>
                             <button onclick="handleEditNote('${order.id}', '${order.note}')" class="btn-action btn-edit">修改備註</button>
-                            <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel">取消訂位</button>
+                            <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel w-full sm:w-auto">取消訂位</button>
                         </div>
                     `}
                 `;
@@ -272,7 +269,6 @@
             }
         }
 
-        // 核心更新函數：改為 POST JSON Body 格式
         async function updateOrder(params) {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
@@ -283,7 +279,6 @@
                 
                 const result = await response.json();
                 if (result.result === "success") {
-                    // 稍微延遲後重新讀取資料，確保試算表已更新
                     setTimeout(fetchOrders, 800);
                 } else {
                     alert("更新失敗：" + result.message);
@@ -291,7 +286,6 @@
                 }
             } catch (err) {
                 console.error("Update Error:", err);
-                // 即使報錯也重新整理資料
                 setTimeout(fetchOrders, 1000);
             }
         }
