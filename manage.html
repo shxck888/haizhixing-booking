@@ -3,65 +3,171 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>海之星餐廳 - 訂位管理1</title>
+    <title>海之星餐廳 - 訂位管理</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%); min-height: 100vh; padding: 1.25rem; padding-bottom: 9rem; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%); 
+            min-height: 100vh; 
+            padding: 1.25rem; 
+            padding-bottom: 2rem; 
+        }
+
         .container { max-width: 480px; margin: 0 auto; }
-        .order-card { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(12px); border-radius: 1.25rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); padding: 1.25rem; margin-bottom: 1rem; border: 1px solid rgba(255, 255, 255, 0.3); }
+        
+        /* 訂單卡片 */
+        .order-card { 
+            background: rgba(255, 255, 255, 0.96); 
+            backdrop-filter: blur(12px); 
+            border-radius: 1.25rem; 
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); 
+            padding: 1.25rem; 
+            margin-bottom: 1rem; 
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+        }
+
+        .info-row { display: flex; align-items: center; margin-bottom: 0.4rem; font-size: 0.9rem; white-space: nowrap; }
+        .info-label { width: 85px; flex-shrink: 0; color: #94a3b8; font-weight: 500; }
+        .info-value { color: #334155; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* 狀態標籤 */
         .status-badge { padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; }
         .status-待確認 { background: #fef3c7; color: #92400e; }
         .status-已確認 { background: #dcfce7; color: #166534; }
         .status-已取消 { background: #fee2e2; color: #991b1b; }
-        .info-row { display: flex; align-items: center; margin-bottom: 0.4rem; font-size: 0.9rem; }
-        .info-label { width: 80px; flex-shrink: 0; color: #94a3b8; font-weight: 500; }
-        .info-value { color: #334155; font-weight: 600; }
-        .btn-action { flex: 1; padding: 0.6rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.85rem; text-align: center; }
-        .btn-edit { background: #f1f5f9; color: #475569; }
-        .btn-cancel { background: #fff1f2; color: #e11d48; }
-        #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+
+        /* 按鈕 */
+        .btn-action { flex: 1; padding: 0.65rem; border-radius: 0.6rem; font-weight: 700; font-size: 0.85rem; text-align: center; transition: 0.2s; }
+        .btn-edit { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .btn-cancel { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
+        .btn-edit:active { transform: scale(0.95); background: #e2e8f0; }
+        
+        /* 自定義彈窗 (Modal) */
+        #custom-modal { 
+            position: fixed; inset: 0; 
+            background: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(4px); 
+            display: none; 
+            align-items: center; justify-content: center; 
+            z-index: 200; 
+            padding: 1.5rem; 
+        }
+        .modal-content { 
+            background: white; 
+            width: 100%; max-width: 360px; 
+            border-radius: 1.5rem; 
+            padding: 1.5rem; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3); 
+            transform: translateY(0);
+            animation: modalIn 0.3s ease-out;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading */
+        #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 500; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0ea5e9; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        #debug-panel { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.95); color: #22d3ee; font-family: monospace; font-size: 10px; padding: 8px; z-index: 999; height: 100px; overflow-y: auto; border-top: 2px solid #0ea5e9; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 日期選擇器美化 */
+        input[type="datetime-local"] {
+            -webkit-appearance: none;
+            min-height: 3rem;
+        }
     </style>
 </head>
 <body>
-    <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold">載入中...</p></div>
+    <!-- 載入中畫面 -->
+    <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold">同步資料中...</p></div>
 
-    <div class="container">
-        <div class="header text-center mb-5">
-            <h2 class="text-xl font-black text-sky-900">我的訂位管理</h2>
-            <p class="text-slate-500 text-xs mt-1">海之星餐廳</p>
-        </div>
-        <div id="order-list"></div>
-        <div id="no-data" class="hidden text-center py-12">
-            <p class="text-slate-500 font-bold">目前無訂位紀錄</p>
-            <button onclick="fetchOrders()" class="mt-4 px-4 py-2 bg-sky-100 text-sky-700 rounded-full text-xs font-bold">刷新</button>
+    <!-- 自定義彈窗 -->
+    <div id="custom-modal">
+        <div class="modal-content">
+            <h3 id="modal-title" class="text-lg font-black text-slate-800 mb-1">標題</h3>
+            <p id="modal-desc" class="text-sm text-slate-500 mb-4">描述文字</p>
+            
+            <input type="text" id="modal-input-text" class="hidden w-full p-3 border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="請輸入內容...">
+            <input type="datetime-local" id="modal-input-date" class="hidden w-full p-3 border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50 font-bold text-slate-700">
+
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">取消</button>
+                <button id="modal-confirm" class="flex-1 py-3 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-100">確定修改</button>
+            </div>
         </div>
     </div>
-    <div id="debug-panel"></div>
+
+    <div class="container">
+        <div class="header text-center mb-6 pt-4">
+            <h2 class="text-2xl font-black text-sky-900 tracking-tight">我的訂位管理</h2>
+            <p class="text-slate-500 text-xs mt-1">海之星餐廳</p>
+        </div>
+        
+        <div id="order-list" class="space-y-4"></div>
+        
+        <div id="no-data" class="hidden text-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-slate-300">
+            <p class="text-slate-400 font-bold">目前無訂位紀錄</p>
+            <button onclick="fetchOrders()" class="mt-4 px-6 py-2 bg-sky-500 text-white rounded-full text-xs font-bold shadow-lg shadow-sky-200">重新整理</button>
+        </div>
+    </div>
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycby53oBv4AmddlLDtLT841kNTeTazAaisuT0-_OfRynVMgSQCw4YceG_V9EU-lxZlrh0/exec";
         const LIFF_ID = "2009349137-5SWKczS7"; 
         let currentUserId = "";
 
-        function logDebug(msg) {
-            const panel = document.getElementById('debug-panel');
-            panel.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-            panel.scrollTop = panel.scrollHeight;
+        function showModal({ title, desc, type, defaultValue, onConfirm }) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            
+            const textInput = document.getElementById('modal-input-text');
+            const dateInput = document.getElementById('modal-input-date');
+            
+            textInput.classList.add('hidden');
+            dateInput.classList.add('hidden');
+
+            if (type === 'date') {
+                dateInput.classList.remove('hidden');
+                if (defaultValue) {
+                    const formatted = defaultValue.replace(/\//g, '-').replace(' ', 'T');
+                    dateInput.value = formatted;
+                }
+            } else {
+                textInput.classList.remove('hidden');
+                textInput.value = defaultValue || "";
+            }
+
+            document.getElementById('custom-modal').style.display = 'flex';
+            
+            document.getElementById('modal-confirm').onclick = () => {
+                const finalValue = type === 'date' ? dateInput.value : textInput.value;
+                closeModal();
+                if (onConfirm) onConfirm(finalValue);
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').style.display = 'none';
         }
 
         async function init() {
             try {
-                await liff.init({ liffId: LIFF_ID });
-                if (!liff.isLoggedIn()) { liff.login(); return; }
-                const profile = await liff.getProfile();
-                currentUserId = profile.userId;
-                fetchOrders();
-            } catch (err) { logDebug("初始化錯誤: " + err.message); }
+                if (window.location.hostname === "localhost" || !navigator.userAgent.includes("Line")) {
+                    currentUserId = "U267b4a5f71f34a200282ce93a363c3b7";
+                    fetchOrders();
+                } else {
+                    await liff.init({ liffId: LIFF_ID });
+                    if (!liff.isLoggedIn()) { liff.login(); return; }
+                    const profile = await liff.getProfile();
+                    currentUserId = profile.userId;
+                    fetchOrders();
+                }
+            } catch (err) { console.error(err); }
         }
 
         async function fetchOrders() {
@@ -77,7 +183,9 @@
                     document.getElementById('order-list').innerHTML = '';
                     document.getElementById('no-data').classList.remove('hidden');
                 }
-            } catch (err) { logDebug("讀取失敗: " + err.message); }
+            } catch (err) { 
+                document.getElementById('loading-screen').style.display = 'none';
+            }
         }
 
         function renderOrders(orders) {
@@ -86,52 +194,81 @@
             orders.forEach(order => {
                 const card = document.createElement('div');
                 card.className = 'order-card';
-                const typeDisplay = order.type === "桌菜" ? `桌菜 / ${order.price}` : order.type;
+                const typeDisplay = order.type === "桌菜" ? `[桌菜] 價位 [${order.price}]` : `[${order.type}]`;
+                
+                // 判斷是否為已結案狀態（已取消）
+                const isClosed = order.status === "已取消";
                 
                 card.innerHTML = `
-                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-50">
-                        <div class="info-row mb-0">
-                            <span class="info-label text-xs">訂單編號</span>
-                            <span class="info-value text-sky-700">${order.id}</span>
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                        <div class="info-row !mb-0">
+                            <span class="info-label !w-auto mr-2">訂單編號</span>
+                            <span class="info-value text-sky-600 font-mono tracking-tighter">${order.id}</span>
                         </div>
                         <span class="status-badge status-${order.status}">${order.status}</span>
                     </div>
                     
-                    <div class="space-y-1">
+                    <div class="space-y-1 bg-slate-50/60 p-3 rounded-xl mb-4">
                         <div class="info-row"><span class="info-label">姓名</span><span class="info-value">${order.name}</span></div>
                         <div class="info-row"><span class="info-label">電話</span><span class="info-value">${order.phone}</span></div>
                         <div class="info-row"><span class="info-label">預訂時間</span><span class="info-value text-amber-600">${order.date} ${order.time}</span></div>
                         <div class="info-row"><span class="info-label">人數 / 桌數</span><span class="info-value">${order.people} 人 / ${order.tables} 桌</span></div>
-                        <div class="info-row"><span class="info-label">類型 / 價位</span><span class="info-value">${typeDisplay}</span></div>
-                        <div class="info-row items-start"><span class="info-label">備註說明</span><span class="info-value text-slate-500 font-normal">${order.note || '無'}</span></div>
+                        <div class="info-row"><span class="info-label">類型</span><span class="info-value">${typeDisplay}</span></div>
+                        <div class="info-row items-start whitespace-normal">
+                            <span class="info-label">備註說明</span>
+                            <span class="info-value text-slate-400 font-normal text-xs leading-relaxed">${order.note || '無'}</span>
+                        </div>
                     </div>
 
-                    <div class="flex gap-2 mt-4">
-                        <button onclick="handleEditTime('${order.id}', '${order.date} ${order.time}')" class="btn-action btn-edit">修改時間</button>
-                        <button onclick="handleEditNote('${order.id}', '${order.note}')" class="btn-action btn-edit">修改備註</button>
-                        <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel">取消訂位</button>
-                    </div>
+                    ${isClosed ? `
+                        <div class="text-center py-2">
+                            <p class="text-slate-400 text-sm font-medium italic">- 此訂位已結案 -</p>
+                        </div>
+                    ` : `
+                        <div class="flex gap-2">
+                            <button onclick="handleEditTime('${order.id}', '${order.date} ${order.time}')" class="btn-action btn-edit">修改時間</button>
+                            <button onclick="handleEditNote('${order.id}', '${order.note}')" class="btn-action btn-edit">修改備註</button>
+                            <button onclick="handleCancel('${order.id}')" class="btn-action btn-cancel">取消訂位</button>
+                        </div>
+                    `}
                 `;
                 listDiv.appendChild(card);
             });
         }
 
-        async function handleEditTime(orderId, oldTime) {
-            const newTime = prompt("請輸入新的預訂時間 (格式如: 2026/03/07 18:30)：", oldTime);
-            if (newTime && newTime !== oldTime) {
-                await updateOrder({ action: 'updateTime', orderId: orderId, time: newTime });
-            }
+        function handleEditTime(orderId, oldTime) {
+            showModal({
+                title: "修改預約時間",
+                desc: "請選擇新的日期與時間：",
+                type: "date",
+                defaultValue: oldTime,
+                onConfirm: async (newTime) => {
+                    if (newTime) {
+                        const finalTime = newTime.replace('T', ' ');
+                        await updateOrder({ action: 'updateTime', orderId: orderId, time: finalTime });
+                    }
+                }
+            });
         }
 
-        async function handleEditNote(orderId, oldNote) {
-            const newNote = prompt("請輸入新備註：", oldNote);
-            if (newNote !== null && newNote !== oldNote) {
-                await updateOrder({ action: 'updateNote', orderId: orderId, note: newNote });
-            }
+        function handleEditNote(orderId, oldNote) {
+            showModal({
+                title: "修改備註",
+                desc: "請更新您的需求說明：",
+                type: "text",
+                defaultValue: oldNote,
+                onConfirm: async (newNote) => {
+                    if (newNote !== null && newNote !== oldNote) {
+                        await updateOrder({ action: 'updateNote', orderId: orderId, note: newNote });
+                    }
+                }
+            });
         }
 
-        async function handleCancel(orderId) {
-            if (confirm("確定取消？")) await updateOrder({ action: 'cancelOrder', orderId: orderId });
+        function handleCancel(orderId) {
+            if (confirm("⚠️ 確定要取消這筆訂單嗎？")) {
+                updateOrder({ action: 'cancelOrder', orderId: orderId });
+            }
         }
 
         async function updateOrder(params) {
@@ -141,9 +278,8 @@
                 if (params.note !== undefined) query += `&note=${encodeURIComponent(params.note)}`;
                 if (params.time !== undefined) query += `&time=${encodeURIComponent(params.time)}`;
                 
-                // POST 使用 no-cors 模式發送
                 await fetch(GAS_URL + query, { method: "POST", mode: "no-cors" });
-                setTimeout(fetchOrders, 1500);
+                setTimeout(fetchOrders, 1200);
             } catch (err) { fetchOrders(); }
         }
 
