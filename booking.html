@@ -270,80 +270,87 @@
         }
 
         async function submitForm() {
-            const name = document.getElementById("name").value.trim();
-            const phone = document.getElementById("phone").value.trim();
-            const date = document.getElementById("date").value;
-            const time = document.getElementById("time").value;
-            const people = document.getElementById("people").value.trim();
-            const tables = document.getElementById("tables").value;
-            const type = document.getElementById("type").value;
-            const tableValue = document.getElementById("tableValue").value;
-            const note = document.getElementById("note").value.trim() || "無";
+        const name = document.getElementById("name").value.trim();
+        const phone = document.getElementById("phone").value.trim();
+        const date = document.getElementById("date").value;
+        const time = document.getElementById("time").value;
+        const people = document.getElementById("people").value.trim();
+        const tables = document.getElementById("tables").value;
+        const type = document.getElementById("type").value;
+        const tableValue = document.getElementById("tableValue").value;
+        const note = document.getElementById("note").value.trim() || "無";
 
-            if (!name || !phone || !date || !people || !tables) {
-                showToast("請完整填寫資訊");
+        if (!name || !phone || !date || !people || !tables) {
+            showToast("請完整填寫資訊");
+            return;
+        }
+
+        const btn = document.querySelector('.btn-submit');
+        btn.disabled = true;
+        btn.innerText = "處理中...";
+
+        try {
+            // 1. 初始化 LIFF
+            await liff.init({ liffId: MY_LIFF_ID });
+            if (!liff.isLoggedIn()) {
+                liff.login();
                 return;
             }
+            const profile = await liff.getProfile();
+            const lineId = profile.userId;
 
-            const btn = document.querySelector('.btn-submit');
-            btn.disabled = true;
-            btn.innerText = "處理中...";
+            const data = {
+                name: name,
+                phone: phone,
+                date: date,
+                time: time,
+                people: people,
+                tables: tables,
+                type: type,
+                tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
+                note: note,
+                lineId: lineId,
+                action: "add" // 明確指定動作
+            };
 
-            try {
-                // 1. 初始化 LIFF 並獲取使用者 Profile
-                await liff.init({ liffId: MY_LIFF_ID });
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
-                const profile = await liff.getProfile();
-                const lineId = profile.userId;
+            // 2. 修正後的 Fetch 寫法
+            // 使用 URLSearchParams 封裝可以避開部分 CORS 複雜預檢
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8', 
+                },
+            });
 
-                // 2. 整理資料傳送給 GAS
-                const data = {
-                    name: name,
-                    phone: phone,
-                    date: date,
-                    time: time,
-                    people: people,
-                    tables: tables,
-                    type: type,
-                    tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
-                    note: note,
-                    lineId: lineId
-                };
+            const result = await response.json();
 
-                // 移除 mode: "no-cors" 以獲得正確的 JSON 回傳
-                const response = await fetch(GAS_URL, {
-                    method: "POST",
-                    body: JSON.stringify(data)
-                });
+            if (result.result === "success") {
+                // 3. 成功後傳送 LINE 訊息
+                let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
+                let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
+                
+                const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n\n🙋‍♀️ 訂單編號：${result.id}\n請靜候闆娘確認！`;
 
-                const result = await response.json();
-
-                if (result.result === "success") {
-                    const orderId = result.id; // 取得 GAS 產生的編號
-
-                    // 3. 傳送 LINE 訊息 (包含訂單編號)
-                    let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
-                    let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
-                    
-                    const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
-
+                // 檢查是否是在 LINE 環境內才發送訊息
+                if (liff.isInClient()) {
                     await liff.sendMessages([{ type: "text", text: message }]);
-                    document.getElementById('custom-modal').style.display = 'flex';
-                } else {
-                    throw new Error(result.message || "系統寫入失敗");
                 }
-
-            } catch (err) {
-                console.error('Submission Error:', err);
-                showToast("發生錯誤，請稍後再試");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "確認並送出訂位";
+                
+                // 顯示成功模態視窗
+                document.getElementById('custom-modal').style.display = 'flex';
+            } else {
+                throw new Error(result.message || "系統寫入失敗");
             }
+
+        } catch (err) {
+            console.error('Submission Error:', err);
+            showToast("連線失敗，請重試");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "確認並送出訂位";
         }
+    }
 
         function showToast(msg) {
             const btn = document.querySelector('.btn-submit');
