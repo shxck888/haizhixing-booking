@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>海之星餐廳 - 訂位管理</title>
+    <title>海之星 - 訂位管理</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -40,7 +40,7 @@
         .status-已確認 { background: #dcfce7; color: #166534; }
         .status-已取消 { background: #fee2e2; color: #991b1b; }
 
-        /* 按鈕樣式 (取消訂位與修改備註一致) */
+        /* 按鈕樣式 */
         .btn-action { flex: 1; padding: 0.85rem; border-radius: 0.75rem; font-weight: 700; font-size: 1rem; text-align: center; transition: 0.2s; border: 1px solid #e2e8f0; }
         .btn-edit { background: #f1f5f9; color: #475569; }
         .btn-edit:active { transform: scale(0.95); background: #e2e8f0; }
@@ -78,12 +78,14 @@
     <!-- 載入中 -->
     <div id="loading-screen"><div class="spinner"></div><p class="mt-4 text-slate-500 font-bold text-lg">讀取資料中...</p></div>
 
-    <!-- 修改備註彈窗 -->
+    <!-- 彈窗 (整合修改與取消) -->
     <div id="custom-modal">
         <div class="modal-content">
-            <h3 id="modal-title" class="text-xl font-black text-slate-800 mb-2">修改備註</h3>
-            <p id="modal-desc" class="text-base text-slate-500 mb-5">請輸入新的備註內容：</p>
-            <input type="text" id="modal-input-text" class="w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <h3 id="modal-title" class="text-xl font-black text-slate-800 mb-2">標題</h3>
+            <p id="modal-desc" class="text-base text-slate-500 mb-5">描述文字</p>
+            <div id="modal-input-container">
+                <input type="text" id="modal-input-text" class="w-full p-4 text-lg border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
             <div class="flex gap-4">
                 <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-xl text-lg">取消</button>
                 <button id="modal-confirm" class="flex-1 py-4 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-100 text-lg">確定</button>
@@ -94,7 +96,6 @@
     <div class="container">
         <div class="header text-center mb-8 pt-6">
             <h2 class="text-3xl font-black text-sky-900 tracking-tight">我的訂位管理</h2>
-            <p class="text-slate-500 text-sm mt-2">海之星餐廳</p>
         </div>
         
         <div id="order-list" class="space-y-5"></div>
@@ -156,7 +157,6 @@
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 
-                // 這裡對應 App Script 回傳的 price 欄位
                 const typeDisplay = order.type === "桌菜" ? `桌菜 (${order.price || ''})` : order.type;
                 const isClosed = order.status === "已取消";
                 
@@ -170,14 +170,14 @@
                     </div>
                     
                     <div class="space-y-2 bg-slate-50/60 p-4 rounded-2xl mb-5">
-                        <div class="info-row"><span class="info-label">姓名</span><span class="info-value text-xl">${order.name}</span></div>
-                        <div class="info-row"><span class="info-label">電話</span><span class="info-value">${order.phone}</span></div>
-                        <div class="info-row"><span class="info-label">時間</span><span class="info-value text-amber-600">${order.date} ${order.time}</span></div>
+                        <div class="info-row"><span class="info-label">訂桌大名</span><span class="info-value text-xl">${order.name}</span></div>
+                        <div class="info-row"><span class="info-label">訂桌電話</span><span class="info-value">${order.phone}</span></div>
+                        <div class="info-row"><span class="info-label">訂桌時間</span><span class="info-value text-amber-600">${order.date} ${order.time}</span></div>
                         <div class="info-row"><span class="info-label">人數/桌數</span><span class="info-value">${order.people}人 / ${order.tables}桌</span></div>
-                        <div class="info-row"><span class="info-label">類型</span><span class="info-value">${typeDisplay}</span></div>
+                        <div class="info-row"><span class="info-label">訂桌類型</span><span class="info-value">${typeDisplay}</span></div>
                         <div class="info-row items-start whitespace-normal">
                             <span class="info-label">備註</span>
-                            <span class="info-value text-slate-500 font-normal text-sm leading-relaxed">${order.note || '無'}</span>
+                            <span class="info-value">${order.note || '無'}</span>
                         </div>
                     </div>
 
@@ -194,13 +194,31 @@
             });
         }
 
-        // 修改與取消邏輯
-        function showModal({ title, defaultValue, onConfirm }) {
+        /**
+         * 統一彈窗邏輯
+         * @param {string} title 標題
+         * @param {string} desc 描述文字
+         * @param {string} defaultValue 預設輸入值
+         * @param {boolean} hideInput 是否隱藏輸入框 (取消確認用)
+         * @param {function} onConfirm 點擊確定的回調
+         */
+        function showModal({ title, desc, defaultValue, hideInput, onConfirm }) {
             document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-input-text').value = defaultValue || "";
+            document.getElementById('modal-desc').innerText = desc || "";
+            
+            const inputContainer = document.getElementById('modal-input-container');
+            const textInput = document.getElementById('modal-input-text');
+            
+            if (hideInput) {
+                inputContainer.style.display = 'none';
+            } else {
+                inputContainer.style.display = 'block';
+                textInput.value = defaultValue || "";
+            }
+            
             document.getElementById('custom-modal').style.display = 'flex';
             document.getElementById('modal-confirm').onclick = () => {
-                const val = document.getElementById('modal-input-text').value;
+                const val = textInput.value;
                 closeModal();
                 onConfirm(val);
             };
@@ -208,20 +226,29 @@
 
         function closeModal() { document.getElementById('custom-modal').style.display = 'none'; }
 
+        // 修改備註
         async function handleEditNote(orderId, oldNote) {
             showModal({
                 title: "修改備註",
+                desc: "請輸入新的備註內容：",
                 defaultValue: oldNote,
+                hideInput: false,
                 onConfirm: async (newNote) => {
                     await updateOrder({ action: 'updateNote', orderId: orderId, note: newNote });
                 }
             });
         }
 
+        // 取消訂位 (改用自定義彈窗)
         function handleCancel(orderId) {
-            if (confirm("確定要取消這筆訂位嗎？")) {
-                updateOrder({ action: 'cancelOrder', orderId: orderId });
-            }
+            showModal({
+                title: "確認取消訂位",
+                desc: `您確定要取消訂位 ${orderId} 嗎？`,
+                hideInput: true,
+                onConfirm: async () => {
+                    await updateOrder({ action: 'cancelOrder', orderId: orderId });
+                }
+            });
         }
 
         // 核心更新函數
@@ -234,7 +261,6 @@
                 });
                 const res = await response.json().catch(() => ({}));
                 
-                // 判斷回傳，App Script 有時用 status 有時用 result，這裡做兼容處理
                 if (res.status === "success" || res.result === "success") {
                     setTimeout(fetchOrders, 800);
                 } else {
