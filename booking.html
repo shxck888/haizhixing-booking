@@ -271,7 +271,7 @@
                 return;
             }
 
-            // 整理資料傳送給 GAS
+            // 整理資料傳送給 GAS，ID 由後端生成
             const data = {
                 name: name,
                 phone: phone,
@@ -290,7 +290,7 @@
 
             try {
                 // 1. 傳送到 Google Script 
-                const gasUrl = "https://script.google.com/macros/s/AKfycbxKDLLYeQCs7b8uJEzRA_MTGypRBXisvwfqUpI2hAZC2yVCLSfnK6pCX7cbKlcsq0qB/exec"; 
+                const gasUrl = "https://script.google.com/macros/s/AKfycbyOaLD7RM9mTwvr5OUOxZwJidv1INpoMSDz7GeQJ9TuSDU5ZDT0R3XS7MzgrHf_mVyJ/exec"; 
                 
                 await fetch(gasUrl, {
                     method: "POST",
