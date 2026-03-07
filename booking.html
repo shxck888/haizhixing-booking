@@ -115,6 +115,11 @@
             filter: brightness(0.95);
         }
 
+        .btn-submit:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
         .hidden-group {
             display: none;
         }
@@ -226,6 +231,11 @@
     </div>
 
     <script>
+        // LIFF ID 變數
+        const MY_LIFF_ID = "2009349137-moYNjcVA";
+        // GAS 網址 (請確保為最新部署網址)
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz50U3XVo7OAHsA4y6J1cl1yPVR6OWVrtpEQfAyZfHWi2jAkaavQcq1cwWjfaOoTw8U/exec";
+
         window.onload = function() {
             // 初始化日期
             const now = new Date();
@@ -250,8 +260,8 @@
                 }
             }
 
-            // 預先啟動 LIFF 讓 profile 抓取更順
-            liff.init({ liffId: "2009349137-moYNjcVA" });
+            // 預先啟動 LIFF
+            liff.init({ liffId: MY_LIFF_ID }).catch(err => console.error("LIFF Init Error", err));
         };
 
         function toggleTableValue() {
@@ -282,13 +292,13 @@
 
             try {
                 // 1. 初始化 LIFF 並獲取使用者 Profile
-                await liff.init({ liffId: "2009349137-moYNjcVA" });
+                await liff.init({ liffId: MY_LIFF_ID });
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
                 const profile = await liff.getProfile();
-                const lineId = profile.userId; // 取得 LINE 的 Unique ID
+                const lineId = profile.userId;
 
                 // 2. 整理資料傳送給 GAS
                 const data = {
@@ -301,29 +311,32 @@
                     type: type,
                     tableValue: (type === "桌菜") ? tableValue : "單點熱炒",
                     note: note,
-                    lineId: lineId // 新增 LINE ID 欄位
+                    lineId: lineId
                 };
 
-                const gasUrl = "https://script.google.com/macros/s/AKfycbwEAfiiQgoClEAudZ7Wvunwo2Y6OktQPzerd5L9VO71rUWKVKMnpASonC5PtzhlbTlj/exec"; 
-                
-                await fetch(gasUrl, {
+                // 移除 mode: "no-cors" 以獲得正確的 JSON 回傳
+                const response = await fetch(GAS_URL, {
                     method: "POST",
-                    mode: "no-cors",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
                     body: JSON.stringify(data)
                 });
 
-                // 3. 傳送 LINE 訊息
-                let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
-                let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
-                
-                const message = `🌟 海之星訂位確認 🌟\n\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
+                const result = await response.json();
 
-                await liff.sendMessages([{ type: "text", text: message }]);
-                
-                document.getElementById('custom-modal').style.display = 'flex';
+                if (result.result === "success") {
+                    const orderId = result.id; // 取得 GAS 產生的編號
+
+                    // 3. 傳送 LINE 訊息 (包含訂單編號)
+                    let typeDisplay = (type === "桌菜") ? `桌菜 (${tableValue})` : type;
+                    let tableDisplay = (tables === "特訂") ? "特訂" : `${tables} 桌`;
+                    
+                    const message = `🌟 海之星訂位確認 🌟\n\n・訂單編號：${orderId}\n・姓名：${name}\n・電話：${phone}\n・日期：${date}\n・時間：${time}\n・人數：${people} 人\n・桌數：${tableDisplay}\n・類型：${typeDisplay}\n・備註：${note}`;
+
+                    await liff.sendMessages([{ type: "text", text: message }]);
+                    document.getElementById('custom-modal').style.display = 'flex';
+                } else {
+                    throw new Error(result.message || "系統寫入失敗");
+                }
+
             } catch (err) {
                 console.error('Submission Error:', err);
                 showToast("發生錯誤，請稍後再試");
@@ -335,7 +348,7 @@
 
         function showToast(msg) {
             const btn = document.querySelector('.btn-submit');
-            const originalText = btn.innerText;
+            const originalText = "確認並送出訂位";
             btn.innerText = msg;
             btn.style.background = "#ef4444"; 
             setTimeout(() => {

@@ -74,12 +74,6 @@
         #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 500; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0ea5e9; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* 日期選擇器美化 */
-        input[type="datetime-local"] {
-            -webkit-appearance: none;
-            min-height: 3rem;
-        }
     </style>
 </head>
 <body>
@@ -117,7 +111,7 @@
     </div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbwEAfiiQgoClEAudZ7Wvunwo2Y6OktQPzerd5L9VO71rUWKVKMnpASonC5PtzhlbTlj/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz50U3XVo7OAHsA4y6J1cl1yPVR6OWVrtpEQfAyZfHWi2jAkaavQcq1cwWjfaOoTw8U/exec";
         const LIFF_ID = "2009349137-5SWKczS7"; 
         let currentUserId = "";
 
@@ -134,8 +128,11 @@
             if (type === 'date') {
                 dateInput.classList.remove('hidden');
                 if (defaultValue) {
-                    const formatted = defaultValue.replace(/\//g, '-').replace(' ', 'T');
-                    dateInput.value = formatted;
+                    // 將 YYYY-MM-DD HH:mm 轉換為 datetime-local 接受的格式
+                    const parts = defaultValue.split(' ');
+                    if (parts.length === 2) {
+                        dateInput.value = `${parts[0]}T${parts[1]}`;
+                    }
                 }
             } else {
                 textInput.classList.remove('hidden');
@@ -145,7 +142,7 @@
             document.getElementById('custom-modal').style.display = 'flex';
             
             document.getElementById('modal-confirm').onclick = () => {
-                const finalValue = type === 'date' ? dateInput.value : textInput.value;
+                const finalValue = type === 'date' ? dateInput.value.replace('T', ' ') : textInput.value;
                 closeModal();
                 if (onConfirm) onConfirm(finalValue);
             };
@@ -157,8 +154,9 @@
 
         async function init() {
             try {
+                // 判斷開發環境
                 if (window.location.hostname === "localhost" || !navigator.userAgent.includes("Line")) {
-                    currentUserId = "U267b4a5f71f34a200282ce93a363c3b7";
+                    currentUserId = "U267b4a5f71f34a200282ce93a363c3b7"; // 測試用 ID
                     fetchOrders();
                 } else {
                     await liff.init({ liffId: LIFF_ID });
@@ -173,10 +171,12 @@
         async function fetchOrders() {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
+                // 使用 GET 方法查詢，加上 timestamp 防止快取
                 const response = await fetch(`${GAS_URL}?action=query&lineId=${currentUserId}&t=${Date.now()}`);
                 const result = await response.json();
                 document.getElementById('loading-screen').style.display = 'none';
-                if (result.status === 'success' && result.data.length > 0) {
+                
+                if (result.status === 'success' && result.data && result.data.length > 0) {
                     renderOrders(result.data);
                     document.getElementById('no-data').classList.add('hidden');
                 } else {
@@ -184,7 +184,9 @@
                     document.getElementById('no-data').classList.remove('hidden');
                 }
             } catch (err) { 
+                console.error("Fetch Error:", err);
                 document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('no-data').classList.remove('hidden');
             }
         }
 
@@ -194,9 +196,9 @@
             orders.forEach(order => {
                 const card = document.createElement('div');
                 card.className = 'order-card';
-                const typeDisplay = order.type === "桌菜" ? `[桌菜] 價位 [${order.price}]` : `[${order.type}]`;
                 
-                // 判斷是否為已結案狀態（已取消）
+                // 處理顯示類型
+                const typeDisplay = order.type === "桌菜" ? `桌菜 (${order.price || order.tableValue})` : order.type;
                 const isClosed = order.status === "已取消";
                 
                 card.innerHTML = `
@@ -222,7 +224,7 @@
 
                     ${isClosed ? `
                         <div class="text-center py-2">
-                            <p class="text-slate-400 text-sm font-medium italic">- 此訂位已結案 -</p>
+                            <p class="text-slate-400 text-sm font-medium italic">- 此訂位已取消 -</p>
                         </div>
                     ` : `
                         <div class="flex gap-2">
@@ -236,7 +238,7 @@
             });
         }
 
-        function handleEditTime(orderId, oldTime) {
+        async function handleEditTime(orderId, oldTime) {
             showModal({
                 title: "修改預約時間",
                 desc: "請選擇新的日期與時間：",
@@ -244,14 +246,13 @@
                 defaultValue: oldTime,
                 onConfirm: async (newTime) => {
                     if (newTime) {
-                        const finalTime = newTime.replace('T', ' ');
-                        await updateOrder({ action: 'updateTime', orderId: orderId, time: finalTime });
+                        await updateOrder({ action: 'updateTime', orderId: orderId, time: newTime });
                     }
                 }
             });
         }
 
-        function handleEditNote(orderId, oldNote) {
+        async function handleEditNote(orderId, oldNote) {
             showModal({
                 title: "修改備註",
                 desc: "請更新您的需求說明：",
@@ -266,21 +267,33 @@
         }
 
         function handleCancel(orderId) {
-            if (confirm("⚠️ 確定要取消這筆訂單嗎？")) {
+            if (confirm("⚠️ 確定要取消這筆訂位嗎？")) {
                 updateOrder({ action: 'cancelOrder', orderId: orderId });
             }
         }
 
+        // 核心更新函數：改為 POST JSON Body 格式
         async function updateOrder(params) {
             document.getElementById('loading-screen').style.display = 'flex';
             try {
-                let query = `?action=${params.action}&orderId=${params.orderId}`;
-                if (params.note !== undefined) query += `&note=${encodeURIComponent(params.note)}`;
-                if (params.time !== undefined) query += `&time=${encodeURIComponent(params.time)}`;
+                const response = await fetch(GAS_URL, {
+                    method: "POST",
+                    body: JSON.stringify(params)
+                });
                 
-                await fetch(GAS_URL + query, { method: "POST", mode: "no-cors" });
-                setTimeout(fetchOrders, 1200);
-            } catch (err) { fetchOrders(); }
+                const result = await response.json();
+                if (result.result === "success") {
+                    // 稍微延遲後重新讀取資料，確保試算表已更新
+                    setTimeout(fetchOrders, 800);
+                } else {
+                    alert("更新失敗：" + result.message);
+                    fetchOrders();
+                }
+            } catch (err) {
+                console.error("Update Error:", err);
+                // 即使報錯也重新整理資料
+                setTimeout(fetchOrders, 1000);
+            }
         }
 
         window.onload = init;
