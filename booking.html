@@ -6,6 +6,7 @@
     <title>海之星 - 線上訂位</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         
@@ -218,7 +219,7 @@
 
     <script>
         const MY_LIFF_ID = "2009349137-moYNjcVA";
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbydEl3W9s28AymYzWNscAbfruwszfgL6DGPsCIN5tG8VuOOPbvy3ZdDGHLd9bKOd8tn/exec";
+        const GAS_URL = window.CONFIG.GAS_URL;
         let isProcessing = false;
 
         window.onload = function() {
