@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尊榮宴席規劃系統 - 專業版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #F9F8F6;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+        
+        .index-svg-container { width: 32px; height: 32px; flex-shrink: 0; margin-right: 1rem; display: flex; align-items: center; justify-content: center; }
+        
+        .menu-card { height: fit-content; position: relative; width: 100%; transition: transform 0.3s ease; }
+        .menu-card:hover { transform: translateY(-4px); }
+
+        .corner-ribbon-container { position: absolute; top: 0; left: 0; width: 80px; height: 80px; z-index: 10; pointer-events: none; }
+        .triangle-bg { width: 0; height: 0; border-style: solid; border-width: 80px 80px 0 0; position: absolute; top: 0; left: 0; }
+        .triangle-bg.A { border-color: #27272a transparent transparent transparent; }
+        .triangle-bg.B { border-color: #f59e0b transparent transparent transparent; }
+        .triangle-bg.C { border-color: #4c0519 transparent transparent transparent; }
+        .triangle-bg.D { border-color: #1e3a8a transparent transparent transparent; }
+
+        .ribbon-text { position: absolute; top: 6px; left: 12px; font-weight: 900; font-size: 1.75rem; color: white; line-height: 1; z-index: 11; }
+        
+        .sortable-ghost { opacity: 0.3; background: #FEF3C7 !important; }
+
+        .grid-cols-5-custom {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+        @media (max-width: 1280px) { .grid-cols-5-custom { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        @media (max-width: 1024px) { .grid-cols-5-custom { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 768px) { .grid-cols-5-custom { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 480px) { .grid-cols-5-custom { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
+
+        .menus-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+        @media (max-width: 1400px) { .menus-container { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 768px) { .menus-container { grid-template-columns: repeat(1, 1fr); } }
+
+        .dish-note {
+            font-size: 0.85rem;
+            color: #78716c;
+            font-weight: 500;
+            line-height: 1.4;
+            margin-top: 0.25rem;
+            word-break: break-all;
+            white-space: pre-wrap; 
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyYbSzGqVKtGkq57lPlvvJUdKNLOAhAFCj2pk6zvm73MaSvD4Qj5tw7oSp4s6KIhDEC/exec";
+
+        const Icon = ({ name, size = 24, className = "" }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const DishIndex = ({ number }) => (
+            <div className="index-svg-container">
+                <svg width="32" height="32" viewBox="0 0 32 32">
+                    <circle cx="16" cy="16" r="15" fill="#FFFBEB" stroke="#FEF3C7" strokeWidth="1" />
+                    <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central" fill="#D97706" fontSize="14" fontWeight="900">
+                        {number}
+                    </text>
+                </svg>
+            </div>
+        );
+
+        function App() {
+            const [dishes, setDishes] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [newDishName, setNewDishName] = useState('');
+            const [newDishNote, setNewDishNote] = useState('');
+
+            const [menus, setMenus] = useState({
+                A: { name: '精選御膳席', price: '6,000', items: [] },
+                B: { name: '豪華盛宴席', price: '8,000', items: [] },
+                C: { name: '頂級尊寵席', price: '10,000', items: [] },
+                D: { name: '自訂宴席組', price: '12,000', items: [] },
+            });
+
+            const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+            const menuRefs = { A: useRef(null), B: useRef(null), C: useRef(null), D: useRef(null) };
+            const databaseRef = useRef(null);
+            const sortableRef = useRef(null);
+
+            const showToast = useCallback((message, type = 'success') => {
+                setToast({ visible: true, message, type });
+                setTimeout(() => setToast({ visible: false, message: '', type: 'success' }), 3000);
+            }, []);
+
+            const fetchDishes = useCallback(async () => {
+                setLoading(true);
+                try {
+                    const res = await fetch(`${GAS_WEB_APP_URL}?action=getDishes`);
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        const mappedData = data.map((d, index) => ({
+                            ...d,
+                            uid: `dish-pos-${index}` 
+                        }));
+                        setDishes(mappedData);
+                    }
+                } catch (e) {
+                    showToast('資料獲取失敗', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            }, [showToast]);
+
+            useEffect(() => { fetchDishes(); }, [fetchDishes]);
+
+            useEffect(() => {
+                if (databaseRef.current && dishes.length > 0) {
+                    sortableRef.current = new Sortable(databaseRef.current, {
+                        animation: 150,
+                        handle: '.drag-handle',
+                        ghostClass: 'sortable-ghost',
+                        onEnd: (evt) => {
+                            const { oldIndex, newIndex } = evt;
+                            if (oldIndex === newIndex) return;
+                            setDishes(prevDishes => {
+                                const newDishes = [...prevDishes];
+                                const [movedItem] = newDishes.splice(oldIndex, 1);
+                                newDishes.splice(newIndex, 0, movedItem);
+                                const reMapped = newDishes.map((d, idx) => ({
+                                    ...d,
+                                    uid: `dish-pos-${idx}`
+                                }));
+                                syncNewOrder(reMapped);
+                                return reMapped;
+                            });
+                        }
+                    });
+                }
+                return () => { if (sortableRef.current) sortableRef.current.destroy(); };
+            }, [dishes.length]);
+
+            const syncNewOrder = async (newOrderedList) => {
+                try {
+                    const orderedNames = newOrderedList.map(d => d.name);
+                    await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: "updateOrder", data: { orderedNames } })
+                    });
+                    showToast('排序已同步');
+                } catch (e) {
+                    showToast('同步失敗', 'error');
+                }
+            };
+
+            const handleAddDish = async () => {
+                if (!newDishName.trim()) {
+                    showToast('請輸入菜名', 'error');
+                    return;
+                }
+                const name = newDishName.trim();
+                const note = newDishNote.trim();
+                
+                setLoading(true);
+                try {
+                    const res = await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: "addDish", data: { name, note } })
+                    });
+                    const result = await res.json();
+                    if(result.status === "SUCCESS") {
+                        setNewDishName('');
+                        setNewDishNote('');
+                        showToast(`已新增：${name}`);
+                        fetchDishes();
+                    }
+                } catch (e) {
+                    showToast('新增失敗', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleDeleteDish = async (dishUid, dishName) => {
+                if (!confirm(`確定要將「${dishName}」從資料庫移除嗎？`)) return;
+                setLoading(true);
+                try {
+                    const res = await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: "deleteDish", data: { name: dishName } })
+                    });
+                    const result = await res.json();
+                    if(result.status === "SUCCESS") {
+                        showToast('已移除菜色');
+                        fetchDishes();
+                        setMenus(prev => {
+                            const updated = { ...prev };
+                            Object.keys(updated).forEach(k => {
+                                updated[k].items = updated[k].items.filter(i => i.uid !== dishUid);
+                            });
+                            return updated;
+                        });
+                    }
+                } catch (e) {
+                    showToast('移除失敗', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleUpdateMenuInfo = (key, field, value) => {
+                setMenus(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+            };
+
+            const handleAddToMenu = (dish, menuKey) => {
+                const isInMenu = menus[menuKey].items.some(item => item.uid === dish.uid);
+                if (isInMenu) {
+                    setMenus(prev => ({
+                        ...prev,
+                        [menuKey]: { 
+                            ...prev[menuKey], 
+                            items: prev[menuKey].items.filter(item => item.uid !== dish.uid) 
+                        }
+                    }));
+                } else {
+                    setMenus(prev => ({
+                        ...prev,
+                        [menuKey]: { 
+                            ...prev[menuKey], 
+                            items: [...prev[menuKey].items, dish] 
+                        }
+                    }));
+                }
+            };
+
+            const isDishInMenu = (dishUid, menuKey) => menus[menuKey].items.some(item => item.uid === dishUid);
+
+            const saveMenuAsImage = async (keys) => {
+                const keysArray = Array.isArray(keys) ? keys : [keys];
+                showToast('正在優化排版並產生圖片...', 'info');
+                
+                const wrapper = document.createElement('div');
+                Object.assign(wrapper.style, {
+                    display: 'flex', 
+                    flexDirection: 'row', 
+                    gap: '24px', 
+                    padding: '40px',
+                    backgroundColor: '#F9F8F6', 
+                    position: 'absolute', 
+                    left: '-9999px', 
+                    top: '0', 
+                    width: 'fit-content'
+                });
+                document.body.appendChild(wrapper);
+                
+                keysArray.forEach(key => {
+                    if (menuRefs[key].current) {
+                        const clone = menuRefs[key].current.cloneNode(true);
+                        clone.style.width = '450px';
+                        clone.style.transform = 'none';
+                        clone.style.borderRadius = '2rem';
+                        
+                        // 1. 減少標題與內容區整體的間距
+                        const headerArea = clone.querySelector('.p-8');
+                        if (headerArea) {
+                            headerArea.style.paddingTop = '1.5rem';
+                            headerArea.style.paddingBottom = '1rem';
+                        }
+                        
+                        const contentArea = clone.querySelector('.p-6');
+                        if (contentArea) {
+                            contentArea.style.paddingTop = '0.5rem';
+                        }
+                        
+                        // --- 2. 精確上移菜色文字容器 ---
+                        // 目標: flex.items-start.min-w-0.flex-1
+                        const dishContainers = clone.querySelectorAll('.flex.items-start.min-w-0.flex-1');
+                        dishContainers.forEach(container => {
+                            container.style.marginTop = '-10px';
+                        });
+
+                        // 3. 處理 Input 轉為純文字
+                        clone.querySelectorAll('input').forEach(input => {
+                            const span = document.createElement('span');
+                            span.innerText = input.value;
+                            span.className = input.className;
+                            span.style.background = 'transparent';
+                            span.style.border = 'none';
+                            input.parentNode.replaceChild(span, input);
+                        });
+
+                        // 4. 移除操作按鈕
+                        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+                        
+                        wrapper.appendChild(clone);
+                    }
+                });
+
+                try {
+                    const canvas = await html2canvas(wrapper, { 
+                        scale: 2, 
+                        backgroundColor: "#F9F8F6",
+                        useCORS: true,
+                        logging: false
+                    });
+                    const link = document.createElement('a');
+                    link.download = `尊榮宴席_${keysArray.join('')}_${new Date().getTime()}.png`;
+                    link.href = canvas.toDataURL("image/png");
+                    link.click();
+                    showToast('下載成功');
+                } catch(e) { 
+                    showToast('產生失敗', 'error'); 
+                } finally { 
+                    document.body.removeChild(wrapper); 
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col text-stone-900">
+                    <header className="no-print sticky top-0 z-[60] bg-stone-900 text-amber-400 py-4 px-6 md:px-10 shadow-xl flex flex-col lg:flex-row items-center justify-between border-b-4 border-amber-600 gap-4">
+                        <div className="flex items-center">
+                            <Icon name="chef-hat" size={40} className="mr-4" />
+                            <h1 className="text-xl md:text-3xl font-black tracking-widest uppercase">尊榮宴席規劃系統</h1>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-2 md:gap-4 items-center">
+                            <button onClick={fetchDishes} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-amber-200 transition-all">
+                                <Icon name="refresh-cw" size={20} className={loading ? "animate-spin" : ""} />
+                            </button>
+                            <div className="flex bg-black/20 p-1 rounded-xl gap-1">
+                                {['A', 'B', 'C', 'D'].map(key => (
+                                    <button key={key} onClick={() => saveMenuAsImage(key)} className="hover:bg-amber-500 hover:text-white px-3 py-1.5 rounded-lg text-amber-200 text-sm font-bold transition-all">存 {key}</button>
+                                ))}
+                            </div>
+                            <button onClick={() => saveMenuAsImage(['A', 'B'])} className="bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded-lg text-white text-sm transition-all font-bold">合 AB</button>
+                            <button onClick={() => saveMenuAsImage(['B', 'C'])} className="bg-amber-800 hover:bg-amber-700 px-3 py-1.5 rounded-lg text-white text-sm transition-all font-bold">合 BC</button>
+                            <button onClick={() => saveMenuAsImage(['A', 'B', 'C'])} className="bg-rose-700 hover:bg-rose-600 px-3 py-2 rounded-lg text-white text-sm transition-all font-bold ring-2 ring-amber-400 shadow-lg">合 ABC</button>
+                        </div>
+                    </header>
+
+                    {toast.visible && (
+                        <div className="no-print fixed top-24 left-1/2 transform -translate-x-1/2 z-[100]">
+                            <div className={`px-8 py-3 rounded-full shadow-2xl text-lg font-bold flex items-center border-2 ${toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                                <Icon name={toast.type === 'error' ? "circle-alert" : "circle-check"} size={20} className="mr-3" /> {toast.message}
+                            </div>
+                        </div>
+                    )}
+
+                    <main className="flex-1 flex flex-col p-4 md:p-8 gap-8">
+                        {/* 資料庫區域 */}
+                        <section className="no-print w-full bg-white rounded-3xl shadow-lg border border-stone-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-stone-50 border-b flex flex-col md:flex-row items-center gap-4 justify-between">
+                                <h2 className="text-xl font-black text-stone-800 flex items-center shrink-0">
+                                    <Icon name="database" className="mr-2 text-amber-600" /> 菜色資料庫
+                                </h2>
+                                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-2xl">
+                                    <div className="flex flex-1 gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={newDishName} 
+                                            onChange={(e) => setNewDishName(e.target.value)} 
+                                            placeholder="菜名" 
+                                            className="w-1/2 px-4 py-2 border-2 border-stone-200 rounded-xl focus:border-amber-500 outline-none transition-all" 
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={newDishNote} 
+                                            onChange={(e) => setNewDishNote(e.target.value)} 
+                                            onKeyPress={(e) => e.key === 'Enter' && handleAddDish()}
+                                            placeholder="備註" 
+                                            className="w-1/2 px-4 py-2 border-2 border-stone-200 rounded-xl focus:border-amber-500 outline-none transition-all" 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleAddDish} 
+                                        disabled={loading} 
+                                        className="bg-rose-900 text-white px-8 py-2 rounded-xl font-bold hover:bg-rose-800 disabled:opacity-50 shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
+                                    >
+                                        <Icon name="plus" size={18} /> 新增
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="p-6 bg-[#FCFBFA] max-h-[400px] overflow-y-auto custom-scrollbar">
+                                <div ref={databaseRef} className="grid-cols-5-custom gap-4">
+                                    {dishes.map((dish) => (
+                                        <div key={dish.uid} className="bg-white rounded-xl p-3 shadow-sm border border-stone-200 group flex flex-col min-h-[100px] justify-between transition-all hover:border-amber-300">
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="flex items-start gap-2 overflow-hidden flex-1">
+                                                    <div className="drag-handle cursor-grab active:cursor-grabbing text-stone-300 hover:text-amber-500 shrink-0 mt-1">
+                                                        <Icon name="grip-vertical" size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-base font-bold text-stone-700 leading-tight break-all">{dish.name}</span>
+                                                        {dish.note && <span className="text-[11px] text-stone-400 mt-0.5 break-all whitespace-pre-wrap leading-relaxed">{dish.note}</span>}
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => handleDeleteDish(dish.uid, dish.name)} className="text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                    <Icon name="trash-2" size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="flex gap-1 mt-auto pt-2">
+                                                {['A', 'B', 'C', 'D'].map(opt => (
+                                                    <button 
+                                                        key={opt} 
+                                                        onClick={() => handleAddToMenu(dish, opt)} 
+                                                        className={`flex-1 h-7 rounded-md font-black text-[10px] border transition-all ${isDishInMenu(dish.uid, opt) ? 'bg-amber-500 text-white border-amber-600 shadow-inner' : 'bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-200'}`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* 菜單展示區域 */}
+                        <section className="flex-1 pb-10 menus-container items-start">
+                            {Object.entries(menus).map(([key, menu]) => (
+                                <div key={key} ref={menuRefs[key]} className={`menu-card bg-white rounded-[2.5rem] shadow-2xl border-4 flex flex-col overflow-hidden ${key === 'A' ? 'border-stone-200' : key === 'B' ? 'border-amber-400' : key === 'C' ? 'border-rose-900' : 'border-blue-900'}`}>
+                                    <div className="corner-ribbon-container"><div className={`triangle-bg ${key}`}></div><span className="ribbon-text">{key}</span></div>
+                                    <div className="p-8 pb-6 text-center border-b bg-white flex-none transition-all duration-300">
+                                        {key === 'D' ? (
+                                            <input value={menu.name} onChange={(e) => handleUpdateMenuInfo('D', 'name', e.target.value)} className="w-full text-center text-2xl font-black text-stone-800 bg-stone-50 rounded-lg p-1 outline-none border-b-2 border-transparent focus:border-blue-400" />
+                                        ) : (
+                                            <h3 className="text-3xl font-black text-stone-800 tracking-widest truncate">{menu.name}</h3>
+                                        )}
+                                        <p className="text-stone-400 font-bold tracking-[0.4em] text-[10px] uppercase mt-1">Gourmet Selection</p>
+                                    </div>
+                                    <div className="p-6 bg-stone-50/40 flex-1 min-h-[450px] transition-all duration-300">
+                                        {menu.items.length === 0 ? (
+                                            <div className="h-full min-h-[300px] flex items-center justify-center border-2 border-dashed border-stone-200 rounded-3xl text-stone-300 italic px-4 text-center">
+                                                選取菜色以規劃選單
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-1">
+                                                {menu.items.map((item, index) => (
+                                                    <div key={item.uid} className="bg-white px-5 py-4 rounded-2xl shadow-sm border border-stone-100 flex items-start justify-between group">
+                                                        <div className="flex items-start min-w-0 flex-1">
+                                                            <DishIndex number={index + 1} />
+                                                            <div className="flex flex-col min-w-0 flex-1">
+                                                                <span className="text-2xl font-bold text-stone-700 leading-tight break-all">
+                                                                    {item.name}
+                                                                </span>
+                                                                {item.note && (
+                                                                    <div className="dish-note">
+                                                                        {item.note}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <button onClick={() => handleAddToMenu(item, key)} className="no-print opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 p-1 shrink-0 ml-2 transition-all mt-1">
+                                                            <Icon name="x-circle" size={20} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="pb-8 pt-4 bg-white border-t flex flex-col items-center gap-1 flex-none">
+                                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.25em]">Per Table / {menu.items.length} Courses</span>
+                                        <div className="flex items-center text-4xl font-black text-amber-600 italic">
+                                            <span className="text-xl mr-1 not-italic font-medium">NT$</span>
+                                            {key === 'D' ? <input value={menu.price} onChange={(e) => handleUpdateMenuInfo('D', 'price', e.target.value)} className="w-36 bg-stone-50 text-amber-600 outline-none text-center p-1" /> : <span>{menu.price}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </section>
+                    </main>
+                </div>
+            );
+        }
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
